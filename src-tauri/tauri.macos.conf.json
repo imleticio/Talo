@@ -1,0 +1,20 @@
+{
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Talo",
+        "width": 1100,
+        "height": 740,
+        "minWidth": 700,
+        "minHeight": 520,
+        "resizable": true,
+        "fullscreen": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "transparent": true,
+        "backgroundColor": "#13151b"
+      }
+    ]
+  }
+}

@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { toAppError } from '@/services/errors'
 
 const STORAGE_KEY = 'talo.chat-background'
+export const MAX_CHAT_BACKGROUND_OPACITY = 70
 
 type BackgroundScope = 'empty' | 'all'
 type Preference = {
@@ -24,7 +25,7 @@ const defaults: Preference = {
 
 function opacity(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
-    ? Math.round(Math.max(0, Math.min(60, value)))
+    ? Math.round(Math.max(0, Math.min(MAX_CHAT_BACKGROUND_OPACITY, value)))
     : fallback
 }
 

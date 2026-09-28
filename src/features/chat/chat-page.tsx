@@ -1,12 +1,13 @@
 import { ArrowUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { ChatWelcome } from './chat-welcome'
 
 export function ChatPage() {
   return (
     <div className="flex min-h-full flex-1 flex-col items-center justify-center px-5 pt-8 pb-[clamp(2.5rem,5vh,4rem)] sm:px-8">
-      <h1 className="sr-only">Chat</h1>
       <div className="w-full max-w-3xl">
+        <ChatWelcome />
         <div className="chat-composer flex min-h-30 flex-col rounded-2xl border p-4">
           <label htmlFor="chat-message" className="sr-only">
             Message

@@ -39,7 +39,15 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
   }
 
   return (
-    <div className="talo-shell flex h-dvh min-h-0 flex-col bg-sidebar text-foreground">
+    <div
+      className="talo-shell flex h-dvh min-h-0 flex-col bg-sidebar text-foreground"
+      data-has-haze={Boolean(imageUrl)}
+      style={
+        imageUrl
+          ? hazeStyle(imageUrl, background.emptyOpacity, background.sessionOpacity)
+          : undefined
+      }
+    >
       <div
         data-tauri-drag-region={isMacDesktop ? '' : undefined}
         className="talo-titlebar h-3 shrink-0 bg-sidebar"
@@ -49,6 +57,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
         <aside
           id="talo-sidebar"
           data-expanded={expanded}
+          data-has-haze={Boolean(imageUrl)}
           className={`talo-sidebar flex shrink-0 flex-col bg-sidebar text-sidebar-foreground ${expanded ? 'w-72' : 'w-[76px]'}`}
           aria-label="Main navigation"
         >
@@ -166,11 +175,6 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
           data-has-haze={Boolean(imageUrl)}
           data-session-empty="true"
           data-background-scope={background.scope}
-          style={
-            imageUrl
-              ? hazeStyle(imageUrl, background.emptyOpacity, background.sessionOpacity)
-              : undefined
-          }
         >
           {imageUrl ? (
             <GradientBlurBackground />

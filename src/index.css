@@ -398,8 +398,31 @@
 }
 
 .talo-sidebar {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
   transition: width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.talo-sidebar[data-has-haze='true'] {
+  background: color-mix(in srgb, var(--sidebar) 88%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.talo-sidebar[data-has-haze='true']::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -24px -16px -24px -40px;
+  pointer-events: none;
+  background-image: var(--chat-background-image, none);
+  background-position: center;
+  background-size: cover;
+  opacity: 0.2;
+  filter: blur(26px) saturate(1.45) brightness(1.1);
+  -webkit-mask-image: linear-gradient(to right, transparent 4%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 4%, #000 100%);
 }
 
 .talo-sidebar-label,

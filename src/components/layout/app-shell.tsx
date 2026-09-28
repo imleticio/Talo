@@ -162,6 +162,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
 
         <div
           className="talo-body haze-pane mr-3 mb-3 flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
+          data-has-haze={Boolean(imageUrl)}
           data-session-empty="true"
           data-background-scope={background.scope}
           style={

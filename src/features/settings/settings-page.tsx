@@ -3,8 +3,12 @@ import { isTauri } from '@tauri-apps/api/core'
 import { getAppInfo, type AppInfo } from '@/services/tauri'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
 import { hazeStyle } from '@/features/chat/haze-style'
-import type { ChatBackground } from './use-chat-background'
+import { MAX_CHAT_BACKGROUND_OPACITY, type ChatBackground } from './use-chat-background'
 import type { WindowTranslucency } from './use-window-translucency'
+
+function intensity(opacity: number) {
+  return Math.round((opacity / MAX_CHAT_BACKGROUND_OPACITY) * 100)
+}
 
 export function SettingsPage({
   windowTranslucency,
@@ -167,15 +171,16 @@ export function SettingsPage({
               htmlFor="chat-background-empty-opacity"
               className="mt-5 flex justify-between text-xs text-muted-foreground"
             >
-              <span>Empty chat opacity</span>
-              <span>{chatBackground.emptyOpacity}%</span>
+              <span>Empty chat intensity</span>
+              <span>{intensity(chatBackground.emptyOpacity)}%</span>
             </label>
             <input
               id="chat-background-empty-opacity"
               type="range"
               min="0"
-              max="60"
+              max={MAX_CHAT_BACKGROUND_OPACITY}
               value={chatBackground.emptyOpacity}
+              aria-valuetext={`${intensity(chatBackground.emptyOpacity)}% intensity`}
               disabled={chatBackground.busy}
               onChange={(event) => chatBackground.setEmptyOpacity(Number(event.target.value))}
               className="mt-2 w-full accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -185,15 +190,16 @@ export function SettingsPage({
               htmlFor="chat-background-session-opacity"
               className="mt-4 flex justify-between text-xs text-muted-foreground"
             >
-              <span>Conversation opacity</span>
-              <span>{chatBackground.sessionOpacity}%</span>
+              <span>Conversation intensity</span>
+              <span>{intensity(chatBackground.sessionOpacity)}%</span>
             </label>
             <input
               id="chat-background-session-opacity"
               type="range"
               min="0"
-              max="60"
+              max={MAX_CHAT_BACKGROUND_OPACITY}
               value={chatBackground.sessionOpacity}
+              aria-valuetext={`${intensity(chatBackground.sessionOpacity)}% intensity`}
               disabled={chatBackground.busy}
               onChange={(event) => chatBackground.setSessionOpacity(Number(event.target.value))}
               className="mt-2 w-full accent-foreground disabled:cursor-not-allowed disabled:opacity-50"

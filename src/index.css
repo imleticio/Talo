@@ -145,12 +145,38 @@
   backdrop-filter: blur(18px);
 }
 
+.haze-pane[data-has-haze='true'] .chat-composer {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+  box-shadow:
+    0 18px 36px -20px rgb(0 0 0 / 38%),
+    0 4px 12px -6px rgb(0 0 0 / 22%),
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  backdrop-filter: blur(16px) saturate(1.05);
+}
+
+.dark .haze-pane[data-has-haze='true'] .chat-composer {
+  background: color-mix(in srgb, var(--background) 18%, transparent);
+}
+
+.haze-pane[data-has-haze='true'] .chat-composer textarea::placeholder {
+  color: color-mix(in srgb, var(--foreground) 94%, transparent);
+}
+
+.haze-pane[data-has-haze='true'] .chat-composer [role='status'] {
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+  background: color-mix(in srgb, var(--background) 28%, transparent);
+  border-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
 .haze-pane {
   position: relative;
   isolation: isolate;
 }
 
 .gradient-blur-background {
+  --haze-image-offset: clamp(48px, 14vh, 180px);
   --gradient-blur-soft: 7px;
   --gradient-blur-strong: 18px;
   --gradient-blur-soft-mask: linear-gradient(to bottom, transparent 18%, #000 60%);
@@ -158,15 +184,15 @@
   --gradient-blur-overlay: linear-gradient(
     to bottom,
     transparent 16%,
-    color-mix(in srgb, var(--background) 26%, transparent) 38%,
-    color-mix(in srgb, var(--background) 55%, transparent) 55%,
+    color-mix(in srgb, var(--background) 12%, transparent) 38%,
+    color-mix(in srgb, var(--background) 48%, transparent) 55%,
     color-mix(in srgb, var(--background) 78%, transparent) 75%
   );
   --gradient-blur-mask: linear-gradient(
     to bottom,
-    #000 0 19%,
-    rgb(0 0 0 / 94%) 30%,
-    rgb(0 0 0 / 72%) 42%,
+    #000 0 30%,
+    rgb(0 0 0 / 94%) 38%,
+    rgb(0 0 0 / 72%) 46%,
     rgb(0 0 0 / 42%) 54%,
     rgb(0 0 0 / 16%) 66%,
     rgb(0 0 0 / 4%) 78%,
@@ -177,8 +203,9 @@
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+  filter: saturate(1.6) brightness(1.3);
   background-image: var(--chat-background-image, none);
-  background-position: center;
+  background-position: center calc(50% - var(--haze-image-offset));
   background-size: cover;
   background-repeat: no-repeat;
   opacity: var(--chat-background-empty-opacity, 0.24);
@@ -191,7 +218,7 @@
   position: absolute;
   inset: 0;
   background-image: var(--chat-background-image, none);
-  background-position: center;
+  background-position: center calc(50% - var(--haze-image-offset));
   background-size: cover;
   background-repeat: no-repeat;
 }
@@ -215,7 +242,7 @@
   background-image:
     repeating-linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--background) 36%, transparent) 0 1px,
+      color-mix(in srgb, var(--background) 18%, transparent) 0 1px,
       transparent 1px 3px
     ),
     var(--gradient-blur-overlay);
@@ -241,6 +268,7 @@
 
 .gradient-blur-preview > .gradient-blur-background,
 .gradient-blur-preview[data-session-empty='false'] > .gradient-blur-background {
+  --haze-image-offset: 24px;
   --gradient-blur-soft: 2px;
   --gradient-blur-strong: 5px;
 }

@@ -8,7 +8,9 @@ function localTimeOfDay() {
 export function ChatWelcome() {
   return (
     <div className="chat-welcome pointer-events-none">
-      <h1>Good {localTimeOfDay()}</h1>
+      <h1>
+        Good <span>{localTimeOfDay()}</span>
+      </h1>
       <p>What would you like to do?</p>
     </div>
   )

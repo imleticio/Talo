@@ -53,6 +53,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
           aria-label="Main navigation"
         >
           <div
+            data-tauri-drag-region={isMacDesktop ? 'deep' : undefined}
             className={`talo-brand flex h-14 shrink-0 items-center ${expanded ? 'px-4' : 'justify-center'}`}
           >
             <Button

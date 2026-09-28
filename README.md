@@ -2,7 +2,7 @@
 
 Talo is an open-source desktop project for coordinating AI agents. Today it is an early application shell: you can navigate Chat, Agents, Projects, and Settings, but you cannot send messages, run agents, or save projects yet. The interface makes these limits explicit.
 
-The visual direction takes inspiration from MonoCode's restrained desktop UI; Talo is an independent project.
+<img width="1920" height="1080" alt="2026-09-28_13-18-39" src="https://github.com/user-attachments/assets/0fd64437-e9e9-44f1-9759-cbc502aa23db" />
 
 ## Run the desktop app
 

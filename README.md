@@ -1,6 +1,11 @@
 # Talo
 
-Talo is an open-source desktop project for coordinating AI agents. Today it is an early application shell: you can navigate Chat, Agents, Projects, and Settings, but you cannot send messages, run agents, or save projects yet. The interface makes these limits explicit.
+Talo is an open-source desktop project for coordinating AI agents. Today it is an early application shell: you can navigate Chat, Agents, Projects, and Settings, but you cannot send messages, run agents, or save projects yet. The interface makes Your open-source desktop AI assistant.
+
+Talo is an open-source desktop AI assistant designed to help you get things done. Chat with AI, delegate tasks to specialized agents, and manage your workflows from one place.
+Our vision is to build an intelligent desktop companion that goes beyond conversations — an assistant that can take action, use tools, and work on your behalf.
+Early development
+Talo is currently in its early stages. The desktop interface includes Chat, Agents, Projects, and Settings. AI conversations, agent execution, and project persistence are not yet implemented.
 
 <img width="1920" height="1080" alt="2026-09-28_13-18-39" src="https://github.com/user-attachments/assets/0fd64437-e9e9-44f1-9759-cbc502aa23db" />
 

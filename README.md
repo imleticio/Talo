@@ -1,52 +1,151 @@
 # Talo
 
-Talo is an open-source desktop project for coordinating AI agents. Today it has an early application shell and a native local storage API for projects, conversations, and messages. The screens are not connected to that API yet: chat sending and agent execution remain disabled.
+Talo is an open-source desktop workspace for coordinating AI assistants, projects, and conversations from one place.
 
-Talo is an open-source desktop AI assistant designed to help you get things done. Chat with AI, delegate tasks to specialized agents, and manage your workflows from one place.
-Our vision is to build an intelligent desktop companion that goes beyond conversations — an assistant that can take action, use tools, and work on your behalf.
+The project is currently in **early MVP development**. The native backend already provides local persistence and an initial OpenCode integration, while the React interface is still being connected to those capabilities.
 
-Early development
+<img width="1920" height="1080" alt="Talo desktop interface" src="https://github.com/user-attachments/assets/4c3b4609-1ac9-403b-8089-d0fcffca2f96" />
 
-Talo is currently in its early stages. The desktop interface includes Chat, Agents, Projects, and Settings. AI conversations, agent execution, and project persistence are not yet implemented.
+## Current status
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/4c3b4609-1ac9-403b-8089-d0fcffca2f96" />
+| Area | Status |
+| --- | --- |
+| Desktop shell and navigation | Implemented with React, TypeScript and Tauri 2 |
+| Local persistence | Implemented with Rust, SQLite and versioned migrations |
+| Projects | Native CRUD implemented; React screen not connected yet |
+| Conversations | Native CRUD implemented with optional project association |
+| Messages | Persistent ordered messages with streaming/interrupted/completed states |
+| OpenCode adapter | Implemented in the native backend |
+| Streaming responses | Implemented through OpenCode SSE events |
+| Session persistence | OpenCode sessions can be associated with local conversations |
+| Cancellation | Implemented for active OpenCode runs |
+| Chat UI | Present, but sending is still disabled while frontend wiring is completed |
+| Agents / Projects UI | Placeholder screens for the current MVP |
+| Additional AI providers | Not implemented yet |
 
+## OpenCode integration
 
-## Run the desktop app
+Talo's first AI integration is built around a provider-agnostic `AgentAdapter` boundary in Rust.
 
-1. Install a supported Node.js version (20.19+ or 22.12+), npm, Rust 1.90+, and the [Tauri 2 prerequisites for your OS](https://v2.tauri.app/start/prerequisites/).
-2. From the project root, run:
+The current `OpenCodeAdapter` can:
 
-   ```bash
-   npm ci
-   npm run tauri dev
-   ```
+- detect an existing local OpenCode server;
+- start `opencode serve` locally when needed;
+- create and recover OpenCode sessions;
+- send prompts to a session;
+- consume streamed responses through Server-Sent Events;
+- surface text deltas, tool activity, completion and error events;
+- cancel active runs;
+- persist user and assistant messages in SQLite.
 
-The Talo window opens on Chat. Sending is disabled until provider integration exists. Settings shows the desktop app name and version returned by Rust and offers optional window translucency on supported desktop platforms.
+The adapter only accepts loopback OpenCode endpoints and keeps provider-specific session identifiers separate from Talo's local conversation model.
 
-For a browser-only UI preview, run `npm run dev` and open `http://localhost:5173/`. Native runtime details are unavailable in the browser.
+The next MVP step is connecting this backend workflow to the React chat interface.
 
-## What works now
+## Persistence
 
-| Area                     | Current behavior                                                              |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| Chat                     | Empty state and disabled composer; no messages are sent.                      |
-| Agents and Projects      | Navigable placeholder screens; native project CRUD is not wired to the UI.    |
-| Settings                 | Displays app info and optional native window translucency on macOS/Windows.   |
-| Storage and integrations | SQLite stores projects, conversations and messages via Tauri commands; appearance uses local settings. No AI providers or agents. |
+Talo stores its core domain data locally in `talo.db` using `rusqlite`.
 
-See [project status](docs/status.md) for the full capability inventory and proposed next areas of work.
+The current schema includes:
 
-## Develop and contribute
+- projects;
+- conversations;
+- messages;
+- external provider sessions.
 
-| Document                                 | Start here when you want to...                                              |
-| ---------------------------------------- | --------------------------------------------------------------------------- |
-| [Development guide](docs/development.md) | Install prerequisites, run checks, or build locally.                        |
-| [Architecture](docs/architecture.md)     | Understand modules, the Tauri command boundary, and security configuration. |
-| [Contributing](CONTRIBUTING.md)          | Prepare a focused change and know which checks to run.                      |
-| [Project status](docs/status.md)         | Distinguish working behavior from future plans.                             |
-| [Security](SECURITY.md)                  | Review the current native boundary and reporting status.                    |
+Database initialization applies versioned migrations, enables foreign keys and WAL mode, and recovers messages left in a streaming state after an interrupted application session.
+
+## Architecture
+
+```text
+React / TypeScript
+        |
+        | Tauri commands
+        v
+Rust application layer
+   |             |
+   |             +--> AgentAdapter --> OpenCode
+   |
+   +--> SQLite persistence
+        |
+        +--> Projects
+        +--> Conversations
+        +--> Messages
+        +--> External sessions
+```
+
+This separation is intended to keep provider-specific integrations outside the UI and make future adapters possible without coupling the application to a single AI runtime.
+
+## Tech stack
+
+- **Desktop:** Tauri 2
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS
+- **Native backend:** Rust
+- **Database:** SQLite / rusqlite
+- **Async & networking:** Tokio, Reqwest
+- **Current AI runtime:** OpenCode
+- **UI:** Radix UI, shadcn-style components, Lucide
+
+## Run locally
+
+### Requirements
+
+- Node.js 20.19+ or 22.12+
+- npm
+- Rust 1.90+
+- Tauri 2 system prerequisites for your platform
+- OpenCode available on `PATH` to exercise the current agent backend
+
+### Start the desktop app
+
+```bash
+npm ci
+npm run tauri dev
+```
+
+For a browser-only UI preview:
+
+```bash
+npm run dev
+```
+
+The browser preview does not provide access to Tauri's native Rust commands.
+
+## Validation
+
+Frontend:
+
+```bash
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build
+```
+
+Rust:
+
+```bash
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The repository includes Rust integration tests for persistence and the OpenCode adapter.
+
+## MVP direction
+
+The immediate focus is to turn the existing backend foundations into a usable end-to-end desktop workflow:
+
+1. connect projects and conversations to the React interface;
+2. wire the chat composer to the OpenCode adapter;
+3. render streamed responses and tool activity in the UI;
+4. expose agent configuration and project association;
+5. add additional provider adapters after the OpenCode flow is stable.
+
+## Project
+
+Talo is a personal open-source project currently under active development.
 
 ## License
 
-Talo's source is licensed under the [MIT License](LICENSE).
+MIT — see [LICENSE](LICENSE).

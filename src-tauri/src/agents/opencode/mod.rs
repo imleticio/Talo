@@ -12,7 +12,9 @@ use futures_util::StreamExt;
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
-use crate::agents::{AgentAdapter, AgentEvent, AgentInfo, AgentUpdate, EventStream};
+use crate::agents::{
+    AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice, AgentUpdate, EventStream,
+};
 use crate::errors::{AppError, AppResult};
 
 const DEFAULT_ENDPOINT: &str = "http://127.0.0.1:4096";
@@ -66,6 +68,9 @@ impl OpenCodeAdapter {
 
 #[async_trait]
 impl AgentAdapter for OpenCodeAdapter {
+    async fn models(&self) -> AppResult<Vec<AgentModel>> {
+        self.client().await.models().await
+    }
     async fn info(&self) -> AppResult<AgentInfo> {
         let installed_version = Self::binary_version().await;
         let client = self.client().await;
@@ -163,8 +168,13 @@ impl AgentAdapter for OpenCodeAdapter {
     async fn get_session(&self, id: &str) -> AppResult<String> {
         self.client().await.get_session(id).await
     }
-    async fn send_message(&self, session: &str, content: &str) -> AppResult<()> {
-        self.client().await.prompt(session, content).await
+    async fn send_message(
+        &self,
+        session: &str,
+        content: &str,
+        model: Option<&AgentModelChoice>,
+    ) -> AppResult<()> {
+        self.client().await.prompt(session, content, model).await
     }
     async fn cancel(&self, session: &str) -> AppResult<()> {
         self.client().await.abort(session).await

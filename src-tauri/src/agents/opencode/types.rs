@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::agents::AgentEvent;
 use crate::errors::{AppError, AppResult};
@@ -13,6 +14,27 @@ pub struct Health {
 #[derive(Deserialize)]
 pub struct Session {
     pub id: String,
+}
+
+#[derive(Deserialize)]
+pub struct Providers {
+    pub all: Vec<Provider>,
+    pub connected: Vec<String>,
+}
+
+#[derive(Deserialize)]
+pub struct Provider {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub models: HashMap<String, ProviderModel>,
+}
+
+#[derive(Deserialize)]
+pub struct ProviderModel {
+    pub name: String,
+    #[serde(default)]
+    pub variants: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]

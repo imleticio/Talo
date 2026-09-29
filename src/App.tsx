@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
 import { AgentsPage } from '@/features/agents/agents-page'
 import { ChatPage } from '@/features/chat/chat-page'
+import { useChatConversation } from '@/features/chat/use-chat-conversation'
 import { ProjectsPage } from '@/features/projects/projects-page'
 import { SettingsPage } from '@/features/settings/settings-page'
 import { useWindowTranslucency } from '@/features/settings/use-window-translucency'
@@ -12,10 +13,11 @@ function App() {
   const [section, setSection] = useState<Section>('chat')
   const windowTranslucency = useWindowTranslucency()
   const chatBackground = useChatBackground()
+  const chat = useChatConversation()
 
   return (
-    <AppShell section={section} onNavigate={setSection} background={chatBackground}>
-      {section === 'chat' && <ChatPage />}
+    <AppShell section={section} onNavigate={setSection} background={chatBackground} chat={chat}>
+      {section === 'chat' && <ChatPage chat={chat} />}
       {section === 'agents' && <AgentsPage />}
       {section === 'projects' && <ProjectsPage />}
       {section === 'settings' && (

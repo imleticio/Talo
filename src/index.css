@@ -399,21 +399,24 @@
 
 .talo-shell {
   --talo-titlebar-height: 0.75rem;
-  --talo-sidebar-width: 76px;
+}
+
+.talo-titlebar,
+.talo-sidebar {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
 }
 
-.talo-shell[data-sidebar-expanded='true'] {
-  --talo-sidebar-width: 18rem;
-}
-
-.talo-shell[data-has-haze='true']::before {
+.talo-shell[data-has-haze='true'] .talo-titlebar::before,
+.talo-sidebar[data-has-haze='true']::before {
   content: '';
   position: absolute;
   z-index: 0;
-  inset: 0 auto 0 0;
+  top: 0;
+  left: 0;
   width: 22rem;
+  height: 100dvh;
   pointer-events: none;
   background-image: var(--chat-background-image);
   background-position: 18% center;
@@ -429,17 +432,13 @@
     radial-gradient(ellipse 13rem 18rem at 3rem 12rem, #000, transparent),
     radial-gradient(ellipse 14rem 19rem at 16rem 53%, rgb(0 0 0 / 45%), transparent),
     radial-gradient(ellipse 12rem 14rem at 2rem 92%, rgb(0 0 0 / 18%), transparent);
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% var(--talo-titlebar-height),
-    var(--talo-sidebar-width) var(--talo-titlebar-height),
-    var(--talo-sidebar-width) 100%,
-    0 100%
-  );
 }
 
-.talo-shell > * {
+.talo-sidebar[data-has-haze='true']::before {
+  top: calc(-1 * var(--talo-titlebar-height));
+}
+
+.talo-sidebar[data-has-haze='true'] > * {
   position: relative;
   z-index: 1;
 }
@@ -449,9 +448,12 @@
 }
 
 .talo-sidebar {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
+  width: 76px;
+  transition: width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.talo-sidebar[data-expanded='true'] {
+  width: 18rem;
 }
 
 .talo-sidebar[data-has-haze='true'] {
@@ -459,24 +461,10 @@
 }
 
 .dark .talo-sidebar [aria-current='page'] {
-  border-radius: 1.25rem;
-  background:
-    radial-gradient(ellipse 90% 85% at 50% -20%, rgb(255 255 255 / 16%), transparent 80%),
-    linear-gradient(155deg, rgb(43 44 48 / 72%), rgb(19 21 26 / 72%));
-  border-color: rgb(255 255 255 / 18%);
-}
-
-.dark .talo-sidebar [aria-current='page']::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 36%),
-    inset 1px 0 rgb(255 255 255 / 12%),
-    inset 0 -1px rgb(255 255 255 / 7%),
-    0 6px 16px rgb(0 0 0 / 14%);
+  background: linear-gradient(145deg, rgb(66 72 84 / 35%), rgb(24 27 34 / 60%));
+  border-color: rgb(255 255 255 / 10%);
+  -webkit-backdrop-filter: blur(6px) saturate(1.15);
+  backdrop-filter: blur(6px) saturate(1.15);
 }
 
 .talo-sidebar-label,
@@ -511,6 +499,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .talo-sidebar {
+    transition: none;
+  }
+
   .talo-sidebar-label,
   .talo-sidebar-status-label,
   .talo-sidebar-details {

@@ -42,7 +42,6 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
     <div
       className="talo-shell flex h-dvh min-h-0 flex-col bg-sidebar text-foreground"
       data-has-haze={Boolean(imageUrl)}
-      data-sidebar-expanded={expanded}
       style={
         imageUrl
           ? hazeStyle(imageUrl, background.emptyOpacity, background.sessionOpacity)
@@ -59,12 +58,12 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
           id="talo-sidebar"
           data-expanded={expanded}
           data-has-haze={Boolean(imageUrl)}
-          className={`talo-sidebar flex shrink-0 flex-col bg-sidebar text-sidebar-foreground ${expanded ? 'w-72' : 'w-[76px]'}`}
+          className="talo-sidebar flex shrink-0 flex-col bg-sidebar text-sidebar-foreground"
           aria-label="Main navigation"
         >
           <div
             data-tauri-drag-region={isMacDesktop ? 'deep' : undefined}
-            className={`talo-brand flex h-14 shrink-0 items-center ${expanded ? 'px-4' : 'justify-center'}`}
+            className="talo-brand flex h-14 shrink-0 items-center px-4"
           >
             <Button
               type="button"
@@ -85,10 +84,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
             </Button>
           </div>
 
-          <nav
-            className={`flex flex-col gap-1 ${expanded ? 'px-3' : 'items-center px-2'}`}
-            aria-label="Sections"
-          >
+          <nav className="flex flex-col gap-1 px-4" aria-label="Sections">
             {navigation
               .filter((item) => item.id !== 'settings')
               .map((item) => (
@@ -100,7 +96,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
                   aria-label={item.label}
                   aria-current={section === item.id ? 'page' : undefined}
                   onClick={() => onNavigate(item.id)}
-                  className={`${expanded ? 'h-11 w-full justify-start pr-3 pl-4.5 text-[13px]' : 'size-11 p-0'} relative rounded-xl font-medium transition-none ${section === item.id ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
+                  className={`relative h-11 w-full justify-start rounded-xl pr-3 pl-3 text-[13px] font-medium transition-none ${section === item.id ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
                 >
                   <item.icon className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
                   <span className="talo-sidebar-label" aria-hidden="true">
@@ -139,9 +135,9 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
             </section>
           </div>
 
-          <div className={`mt-auto pb-4 ${expanded ? 'px-3' : 'flex flex-col items-center px-2'}`}>
+          <div className="mt-auto px-4 pb-4">
             <div
-              className={`relative flex h-10 items-center text-xs text-muted-foreground ${expanded ? 'border-t border-sidebar-border px-6' : 'justify-center'}`}
+              className={`relative flex h-10 items-center border-t px-5.5 text-xs text-muted-foreground ${expanded ? 'border-sidebar-border' : 'border-transparent'}`}
               title="No provider connected"
               role="status"
               aria-label="No provider connected"
@@ -161,7 +157,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
               aria-label="Settings"
               aria-current={section === 'settings' ? 'page' : undefined}
               onClick={() => onNavigate('settings')}
-              className={`${expanded ? 'h-11 w-full justify-start pr-3 pl-4.5 text-[13px]' : 'size-11 p-0'} relative rounded-xl font-medium transition-none ${section === 'settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
+              className={`relative h-11 w-full justify-start rounded-xl pr-3 pl-3 text-[13px] font-medium transition-none ${section === 'settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
             >
               <Settings2 className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
               <span className="talo-sidebar-label" aria-hidden="true">

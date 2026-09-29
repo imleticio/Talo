@@ -19,13 +19,20 @@ tauri-build = { version = "2.7.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.12.0", features = ["protocol-asset", "macos-private-api"] }
 tauri-plugin-dialog = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "sync", "time", "net"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+serde_json = "1"
+futures-util = "0.3"
+async-trait = "0.1"
+percent-encoding = "2"
+async-stream = "0.3"
 
 [dev-dependencies]
 tempfile = "3"
+axum = "0.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"

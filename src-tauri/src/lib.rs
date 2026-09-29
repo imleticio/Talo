@@ -1,4 +1,4 @@
-mod agents;
+pub mod agents;
 #[cfg(target_os = "macos")]
 mod app_icon;
 mod commands;
@@ -17,6 +17,11 @@ pub fn run() {
             use tauri::Manager;
             let directory = app.path().app_data_dir()?;
             let database = database::Database::initialize(&directory)?;
+            let adapter = agents::opencode::OpenCodeAdapter::new(directory)?;
+            app.manage(services::agent::AgentService::new(
+                database.clone(),
+                std::sync::Arc::new(adapter),
+            ));
             app.manage(database);
             #[cfg(target_os = "macos")]
             {
@@ -50,7 +55,12 @@ pub fn run() {
             commands::persistence::create_message,
             commands::persistence::list_messages,
             commands::persistence::update_message,
-            commands::persistence::recover_interrupted_message
+            commands::persistence::recover_interrupted_message,
+            commands::agent::opencode_status,
+            commands::agent::opencode_create_session,
+            commands::agent::opencode_get_session,
+            commands::agent::opencode_send_message,
+            commands::agent::opencode_cancel
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Talo");

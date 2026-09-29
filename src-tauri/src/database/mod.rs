@@ -11,6 +11,13 @@ use uuid::Uuid;
 use crate::errors::{AppError, AppResult};
 use crate::models::{Conversation, Message, MessageRole, MessageStatus, Project};
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalSession {
+    pub conversation_id: String,
+    pub external_id: String,
+}
+
 const MIGRATIONS: [&str; 3] = [
     include_str!("migrations/001_core.sql"),
     include_str!("migrations/002_external_sessions.sql"),
@@ -23,6 +30,54 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn external_session(
+        &self,
+        conversation_id: &str,
+        provider: &str,
+    ) -> AppResult<ExternalSession> {
+        self.connect()?.query_row(
+            "SELECT conversation_id, external_id FROM external_sessions WHERE conversation_id = ?1 AND provider = ?2",
+            params![conversation_id, provider],
+            |row| Ok(ExternalSession { conversation_id: row.get(0)?, external_id: row.get(1)? }),
+        ).optional().map_err(sql_error)?.ok_or_else(|| not_found("External session"))
+    }
+
+    pub fn link_session(
+        &self,
+        conversation_id: &str,
+        provider: &str,
+        external_id: &str,
+    ) -> AppResult<ExternalSession> {
+        let mut connection = self.connect()?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        if transaction
+            .query_row(
+                "SELECT 1 FROM external_sessions WHERE conversation_id = ?1 AND provider = ?2",
+                params![conversation_id, provider],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(sql_error)?
+            .is_some()
+        {
+            return Err(AppError::new(
+                "constraint",
+                "Conversation already has an external session",
+            ));
+        }
+        transaction.execute(
+            "INSERT INTO external_sessions (id, conversation_id, provider, external_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![Uuid::new_v4().to_string(), conversation_id, provider, external_id, timestamp()],
+        ).map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
+        Ok(ExternalSession {
+            conversation_id: conversation_id.to_owned(),
+            external_id: external_id.to_owned(),
+        })
+    }
+
     pub fn initialize(directory: &Path) -> AppResult<Self> {
         fs::create_dir_all(directory)
             .map_err(|error| AppError::new("storage", error.to_string()))?;

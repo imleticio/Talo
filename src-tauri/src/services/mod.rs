@@ -15,3 +15,4 @@ pub fn get_app_info() -> AppInfo {
         version: env!("CARGO_PKG_VERSION"),
     }
 }
+pub mod agent;

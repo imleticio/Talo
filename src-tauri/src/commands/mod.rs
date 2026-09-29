@@ -9,3 +9,4 @@ use crate::services::{self, AppInfo};
 pub async fn get_app_info() -> AppResult<AppInfo> {
     Ok(services::get_app_info())
 }
+pub(crate) mod agent;

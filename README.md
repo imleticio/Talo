@@ -9,7 +9,8 @@ Early development
 
 Talo is currently in its early stages. The desktop interface includes Chat, Agents, Projects, and Settings. AI conversations, agent execution, and project persistence are not yet implemented.
 
-<img width="1918" height="1080" alt="image" src="https://github.com/user-attachments/assets/ab2c4acf-5b2d-463f-a9ec-4c2ae83c760a" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/4c3b4609-1ac9-403b-8089-d0fcffca2f96" />
+
 
 ## Run the desktop app
 

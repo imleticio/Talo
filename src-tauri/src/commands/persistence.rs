@@ -150,3 +150,15 @@ pub async fn update_message(
     })
     .await
 }
+
+#[tauri::command]
+pub async fn recover_interrupted_message(
+    db: State<'_, Database>,
+    message_id: String,
+    content: String,
+) -> AppResult<Message> {
+    run(db, move |db| {
+        persistence::recover_interrupted_message(&db, message_id, content)
+    })
+    .await
+}

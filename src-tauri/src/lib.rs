@@ -49,7 +49,8 @@ pub fn run() {
             commands::persistence::delete_conversation,
             commands::persistence::create_message,
             commands::persistence::list_messages,
-            commands::persistence::update_message
+            commands::persistence::update_message,
+            commands::persistence::recover_interrupted_message
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Talo");

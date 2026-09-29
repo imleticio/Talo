@@ -397,6 +397,57 @@
   }
 }
 
+.talo-shell {
+  --talo-titlebar-height: 0.75rem;
+  --talo-sidebar-width: 76px;
+  position: relative;
+  isolation: isolate;
+}
+
+.talo-shell[data-sidebar-expanded='true'] {
+  --talo-sidebar-width: 18rem;
+}
+
+.talo-shell[data-has-haze='true']::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 22rem;
+  pointer-events: none;
+  background-image: var(--chat-background-image);
+  background-position: 18% center;
+  background-size: auto 100%;
+  background-repeat: no-repeat;
+  filter: blur(80px) saturate(1.6) brightness(0.85);
+  opacity: min(0.42, calc(var(--chat-background-empty-opacity, 0.24) * 1.25));
+  -webkit-mask-image:
+    radial-gradient(ellipse 13rem 18rem at 3rem 12rem, #000, transparent),
+    radial-gradient(ellipse 14rem 19rem at 16rem 53%, rgb(0 0 0 / 45%), transparent),
+    radial-gradient(ellipse 12rem 14rem at 2rem 92%, rgb(0 0 0 / 18%), transparent);
+  mask-image:
+    radial-gradient(ellipse 13rem 18rem at 3rem 12rem, #000, transparent),
+    radial-gradient(ellipse 14rem 19rem at 16rem 53%, rgb(0 0 0 / 45%), transparent),
+    radial-gradient(ellipse 12rem 14rem at 2rem 92%, rgb(0 0 0 / 18%), transparent);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% var(--talo-titlebar-height),
+    var(--talo-sidebar-width) var(--talo-titlebar-height),
+    var(--talo-sidebar-width) 100%,
+    0 100%
+  );
+}
+
+.talo-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.talo-shell[data-has-haze='true'] .talo-titlebar {
+  background: transparent;
+}
+
 .talo-sidebar {
   position: relative;
   isolation: isolate;
@@ -404,35 +455,12 @@
 }
 
 .talo-sidebar[data-has-haze='true'] {
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--sidebar) 86%, transparent),
-    color-mix(in srgb, var(--sidebar) 64%, transparent)
-  );
+  background: transparent;
 }
 
-.talo-sidebar[data-has-haze='true']::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 18rem;
-  pointer-events: none;
-  background-image: var(--chat-background-image);
-  background-position: left center;
-  background-size: auto 100%;
-  background-repeat: no-repeat;
-  filter: blur(22px) saturate(1.2);
-  opacity: min(0.36, calc(var(--chat-background-empty-opacity, 0.24) * 1.25));
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 46%, transparent 84%);
-  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 46%, transparent 84%);
-}
-
-.talo-sidebar[data-has-haze='true'] > * {
-  position: relative;
-  z-index: 1;
+.talo-sidebar[data-has-haze='true'][data-expanded='true'] [aria-current='page'] {
+  background: color-mix(in srgb, var(--sidebar-accent) 55%, transparent);
+  box-shadow: inset 0 0 0 1px var(--sidebar-border);
 }
 
 .talo-sidebar-label,
@@ -478,6 +506,10 @@ html.is-macos-desktop .talo-titlebar {
   height: 2rem;
 }
 
+html.is-macos-desktop .talo-shell {
+  --talo-titlebar-height: 2rem;
+}
+
 html.window-glass.dark,
 html.window-glass.dark body,
 html.window-glass.dark #root {
@@ -496,7 +528,7 @@ html.window-glass.dark:not(.glass-body) .talo-body {
   background: var(--background);
 }
 
-html.window-glass.dark .talo-sidebar,
+html.window-glass.dark .talo-sidebar:not([data-has-haze='true']),
 html.window-glass.dark .talo-titlebar {
   background: transparent;
 }

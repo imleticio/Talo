@@ -2,20 +2,24 @@ mod agents;
 #[cfg(target_os = "macos")]
 mod app_icon;
 mod commands;
-mod database;
-mod errors;
+pub mod database;
+pub mod errors;
 #[cfg(target_os = "macos")]
 mod macos_glass;
-mod services;
+pub mod models;
+pub mod services;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            use tauri::Manager;
+            let directory = app.path().app_data_dir()?;
+            let database = database::Database::initialize(&directory)?;
+            app.manage(database);
             #[cfg(target_os = "macos")]
             {
-                use tauri::Manager;
                 app_icon::set_dock_icon()?;
                 let window = app
                     .get_webview_window("main")
@@ -32,7 +36,20 @@ pub fn run() {
             commands::window_appearance::supports_window_translucency,
             commands::window_appearance::supports_window_background_blur,
             commands::window_appearance::set_window_translucency,
-            commands::window_appearance::set_window_background_blur
+            commands::window_appearance::set_window_background_blur,
+            commands::persistence::create_project,
+            commands::persistence::list_projects,
+            commands::persistence::get_project,
+            commands::persistence::update_project,
+            commands::persistence::delete_project,
+            commands::persistence::create_conversation,
+            commands::persistence::list_conversations,
+            commands::persistence::get_conversation,
+            commands::persistence::rename_conversation,
+            commands::persistence::delete_conversation,
+            commands::persistence::create_message,
+            commands::persistence::list_messages,
+            commands::persistence::update_message
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Talo");

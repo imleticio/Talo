@@ -22,6 +22,42 @@ fn valid_description(value: Option<String>) -> AppResult<Option<String>> {
     value.map(|text| required(&text, "description")).transpose()
 }
 
+fn message_content(content: String, status: MessageStatus) -> AppResult<String> {
+    if content.contains('\0') || (status == MessageStatus::Completed && content.trim().is_empty()) {
+        return Err(AppError::new("validation", "Invalid message content"));
+    }
+    // Preserve whitespace and empty drafts: a streaming token can itself be whitespace.
+    Ok(content)
+}
+
+fn streaming_transition(previous: MessageStatus, next: MessageStatus) -> AppResult<()> {
+    if previous == MessageStatus::Streaming
+        && matches!(
+            next,
+            MessageStatus::Streaming
+                | MessageStatus::Completed
+                | MessageStatus::Failed
+                | MessageStatus::Interrupted
+        )
+    {
+        return Ok(());
+    }
+    Err(AppError::new(
+        "validation",
+        "Invalid message status transition",
+    ))
+}
+
+fn recovery_transition(previous: MessageStatus, next: MessageStatus) -> AppResult<()> {
+    if previous == MessageStatus::Interrupted && next == MessageStatus::Completed {
+        return Ok(());
+    }
+    Err(AppError::new(
+        "validation",
+        "Invalid message recovery transition",
+    ))
+}
+
 pub fn create_project(
     db: &Database,
     name: String,
@@ -110,10 +146,18 @@ pub fn create_message(
     status: MessageStatus,
 ) -> AppResult<Message> {
     id(&conversation_id)?;
+    if status == MessageStatus::Interrupted
+        || (status == MessageStatus::Streaming && !matches!(role, MessageRole::Assistant))
+    {
+        return Err(AppError::new(
+            "validation",
+            "Invalid initial message status",
+        ));
+    }
     db.create_message(
         &conversation_id,
         role,
-        &required(&content, "content")?,
+        &message_content(content, status)?,
         status,
     )
 }
@@ -130,5 +174,24 @@ pub fn update_message(
     status: MessageStatus,
 ) -> AppResult<Message> {
     id(&message_id)?;
-    db.update_message(&message_id, &required(&content, "content")?, status)
+    db.update_message(
+        &message_id,
+        &message_content(content, status)?,
+        status,
+        streaming_transition,
+    )
+}
+
+pub fn recover_interrupted_message(
+    db: &Database,
+    message_id: String,
+    content: String,
+) -> AppResult<Message> {
+    id(&message_id)?;
+    db.update_message(
+        &message_id,
+        &message_content(content, MessageStatus::Completed)?,
+        MessageStatus::Completed,
+        recovery_transition,
+    )
 }

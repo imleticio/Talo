@@ -40,7 +40,7 @@ impl MessageRole {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageStatus {
     Completed,
@@ -65,6 +65,7 @@ impl MessageStatus {
 pub struct Message {
     pub id: String,
     pub conversation_id: String,
+    pub sequence: i64,
     pub role: MessageRole,
     pub content: String,
     pub status: MessageStatus,

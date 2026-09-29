@@ -23,6 +23,7 @@ export type MessageStatus = 'completed' | 'streaming' | 'failed' | 'interrupted'
 export type Message = {
   id: string
   conversationId: string
+  sequence: number
   role: MessageRole
   content: string
   status: MessageStatus
@@ -68,3 +69,5 @@ export const listMessages = (conversationId: string) =>
   call<Message[]>('list_messages', { conversationId })
 export const updateMessage = (messageId: string, content: string, status: MessageStatus) =>
   call<Message>('update_message', { messageId, content, status })
+export const recoverInterruptedMessage = (messageId: string, content: string) =>
+  call<Message>('recover_interrupted_message', { messageId, content })

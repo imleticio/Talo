@@ -3,15 +3,25 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::{SecondsFormat, Utc};
-use rusqlite::{Connection, Error as SqlError, ErrorCode, OptionalExtension, Row, params};
+use rusqlite::{
+    Connection, Error as SqlError, ErrorCode, OptionalExtension, Row, TransactionBehavior, params,
+};
 use uuid::Uuid;
 
 use crate::errors::{AppError, AppResult};
 use crate::models::{Conversation, Message, MessageRole, MessageStatus, Project};
 
-const MIGRATIONS: [&str; 2] = [
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalSession {
+    pub conversation_id: String,
+    pub external_id: String,
+}
+
+const MIGRATIONS: [&str; 3] = [
     include_str!("migrations/001_core.sql"),
     include_str!("migrations/002_external_sessions.sql"),
+    include_str!("migrations/003_message_streaming_order.sql"),
 ];
 
 #[derive(Clone)]
@@ -20,6 +30,54 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn external_session(
+        &self,
+        conversation_id: &str,
+        provider: &str,
+    ) -> AppResult<ExternalSession> {
+        self.connect()?.query_row(
+            "SELECT conversation_id, external_id FROM external_sessions WHERE conversation_id = ?1 AND provider = ?2",
+            params![conversation_id, provider],
+            |row| Ok(ExternalSession { conversation_id: row.get(0)?, external_id: row.get(1)? }),
+        ).optional().map_err(sql_error)?.ok_or_else(|| not_found("External session"))
+    }
+
+    pub fn link_session(
+        &self,
+        conversation_id: &str,
+        provider: &str,
+        external_id: &str,
+    ) -> AppResult<ExternalSession> {
+        let mut connection = self.connect()?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        if transaction
+            .query_row(
+                "SELECT 1 FROM external_sessions WHERE conversation_id = ?1 AND provider = ?2",
+                params![conversation_id, provider],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(sql_error)?
+            .is_some()
+        {
+            return Err(AppError::new(
+                "constraint",
+                "Conversation already has an external session",
+            ));
+        }
+        transaction.execute(
+            "INSERT INTO external_sessions (id, conversation_id, provider, external_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![Uuid::new_v4().to_string(), conversation_id, provider, external_id, timestamp()],
+        ).map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
+        Ok(ExternalSession {
+            conversation_id: conversation_id.to_owned(),
+            external_id: external_id.to_owned(),
+        })
+    }
+
     pub fn initialize(directory: &Path) -> AppResult<Self> {
         fs::create_dir_all(directory)
             .map_err(|error| AppError::new("storage", error.to_string()))?;
@@ -27,7 +85,12 @@ impl Database {
             path: directory.join("talo.db"),
         };
         let mut connection = database.connect()?;
-        let version: u32 = connection
+        // Acquire the writer lock before inspecting the schema version so two startups
+        // cannot both attempt to apply the same migration.
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let version: u32 = transaction
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(sql_error)?;
         if version as usize > MIGRATIONS.len() {
@@ -37,20 +100,19 @@ impl Database {
             ));
         }
         for (index, migration) in MIGRATIONS.iter().enumerate().skip(version as usize) {
-            let transaction = connection.transaction().map_err(sql_error)?;
             transaction.execute_batch(migration).map_err(sql_error)?;
             transaction
                 .pragma_update(None, "user_version", (index + 1) as u32)
                 .map_err(sql_error)?;
-            transaction.commit().map_err(sql_error)?;
         }
         // Only recover after confirming the schema is supported and all migrations succeed.
-        connection
+        transaction
             .execute(
                 "UPDATE messages SET status = 'interrupted', updated_at = ?1 WHERE status = 'streaming'",
                 [timestamp()],
             )
             .map_err(sql_error)?;
+        transaction.commit().map_err(sql_error)?;
         Ok(database)
     }
 
@@ -230,6 +292,7 @@ impl Database {
         let message = Message {
             id: Uuid::new_v4().to_string(),
             conversation_id: conversation_id.to_owned(),
+            sequence: 0,
             role,
             content: content.to_owned(),
             status,
@@ -237,13 +300,23 @@ impl Database {
             updated_at: now.clone(),
         };
         let mut connection = self.connect()?;
-        let transaction = connection.transaction().map_err(sql_error)?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let sequence: i64 = transaction
+            .query_row(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM messages WHERE conversation_id = ?1",
+                [conversation_id],
+                |row| row.get(0),
+            )
+            .map_err(sql_error)?;
         transaction
             .execute(
-                "INSERT INTO messages VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO messages (id, conversation_id, sequence, role, content, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     message.id,
                     message.conversation_id,
+                    sequence,
                     role.as_str(),
                     message.content,
                     status.as_str(),
@@ -259,7 +332,10 @@ impl Database {
             )
             .map_err(sql_error)?;
         transaction.commit().map_err(sql_error)?;
-        Ok(message)
+        Ok(Message {
+            sequence,
+            ..message
+        })
     }
 
     pub fn list_messages(&self, conversation_id: &str) -> AppResult<Vec<Message>> {
@@ -275,7 +351,7 @@ impl Database {
             .map_err(sql_error)?
             .ok_or_else(|| not_found("Conversation"))?;
         let mut statement = connection
-            .prepare("SELECT * FROM messages WHERE conversation_id = ?1 ORDER BY created_at, rowid")
+            .prepare("SELECT * FROM messages WHERE conversation_id = ?1 ORDER BY sequence")
             .map_err(sql_error)?;
         statement
             .query_map([conversation_id], message_row)
@@ -289,19 +365,25 @@ impl Database {
         id: &str,
         content: &str,
         status: MessageStatus,
+        validate_transition: impl FnOnce(MessageStatus, MessageStatus) -> AppResult<()>,
     ) -> AppResult<Message> {
         let mut connection = self.connect()?;
-        let transaction = connection.transaction().map_err(sql_error)?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error)?;
+        let previous = transaction
+            .query_row("SELECT * FROM messages WHERE id = ?1", [id], message_row)
+            .optional()
+            .map_err(sql_error)?
+            .ok_or_else(|| not_found("Message"))?;
+        validate_transition(previous.status, status)?;
         let now = timestamp();
-        let changed = transaction
+        transaction
             .execute(
                 "UPDATE messages SET content = ?2, status = ?3, updated_at = ?4 WHERE id = ?1",
                 params![id, content, status.as_str(), now],
             )
             .map_err(sql_error)?;
-        if changed == 0 {
-            return Err(not_found("Message"));
-        }
         let message = transaction
             .query_row("SELECT * FROM messages WHERE id = ?1", [id], message_row)
             .map_err(sql_error)?;
@@ -357,8 +439,8 @@ fn conversation_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
 }
 
 fn message_row(row: &Row<'_>) -> rusqlite::Result<Message> {
-    let role: String = row.get(2)?;
-    let status: String = row.get(4)?;
+    let role: String = row.get(3)?;
+    let status: String = row.get(5)?;
     let invalid = |column| {
         SqlError::InvalidColumnType(column, "invalid enum".into(), rusqlite::types::Type::Text)
     };
@@ -367,22 +449,23 @@ fn message_row(row: &Row<'_>) -> rusqlite::Result<Message> {
         "user" => MessageRole::User,
         "assistant" => MessageRole::Assistant,
         "tool" => MessageRole::Tool,
-        _ => return Err(invalid(2)),
+        _ => return Err(invalid(3)),
     };
     let status = match status.as_str() {
         "completed" => MessageStatus::Completed,
         "streaming" => MessageStatus::Streaming,
         "failed" => MessageStatus::Failed,
         "interrupted" => MessageStatus::Interrupted,
-        _ => return Err(invalid(4)),
+        _ => return Err(invalid(5)),
     };
     Ok(Message {
         id: row.get(0)?,
         conversation_id: row.get(1)?,
+        sequence: row.get(2)?,
         role,
-        content: row.get(3)?,
+        content: row.get(4)?,
         status,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
     })
 }

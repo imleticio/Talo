@@ -1,4 +1,5 @@
 pub mod chat_background;
+pub mod persistence;
 
 use serde::Serialize;
 

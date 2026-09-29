@@ -1,57 +1,40 @@
 # Architecture
 
-Talo has a React renderer and a Tauri 2/Rust host. Settings requests app metadata and controls an optional native window effect through Tauri commands. No agent or database adapter is connected.
+Talo runs React in a Tauri 2 window. The Rust host owns local SQLite storage and native window/background effects; there is no HTTP server or provider integration.
 
 ## Runtime path
 
 ```text
-Desktop startup: src-tauri/src/main.rs -> lib.rs (registers commands)
-Renderer startup: src/main.tsx -> src/App.tsx -> SettingsPage
-SettingsPage -> src/services/tauri.ts -> invoke("get_app_info")
-             -> commands::get_app_info -> services::get_app_info
-App startup / Settings -> src/services/tauri.ts -> window appearance commands
-                      -> native macOS vibrancy or Windows Acrylic
+src-tauri/src/main.rs -> lib.rs -> setup: app_data_dir/talo.db, migrations, recovery
+                                  -> existing window/background initialization
+React -> src/services/persistence.ts -> Tauri commands/persistence.rs
+                                     -> spawn_blocking -> services/persistence.rs
+                                                       -> database/mod.rs -> SQLite
 ```
 
-The browser preview renders the same screens, but `SettingsPage` checks `isTauri()` before calling the native command. Navigation is local React state in `src/App.tsx`; it is not a router and is not persisted.
+Each storage command opens its own connection in a blocking worker. Connections enable foreign keys, WAL, and a five-second busy timeout. The startup setup opens the database, creates `app_data_dir` if needed, applies versioned SQL migrations transactionally using `PRAGMA user_version`, and changes lingering `streaming` messages to `interrupted`. A schema version newer than the application fails startup without migration or recovery writes. Startup errors also abort startup rather than silently opening an empty store.
 
-## Module responsibilities
+## Responsibilities
 
-| Location                                           | Responsibility                                                                                     |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `src/features/{chat,agents,projects,settings}/`    | Feature screens; Chat, Agents, and Projects currently show honest empty states.                    |
-| `src/components/layout/`                           | App shell, sidebar, header, and navigation metadata.                                               |
-| `src/components/ui/`                               | Local shadcn/ui component source (Button and Textarea).                                            |
-| `src/index.css`, `components.json`                 | Tailwind v4 theme tokens, dark default, and shadcn/ui configuration.                               |
-| `src/services/tauri.ts`, `src/services/errors.ts`  | Native command gateway and normalization of rejected values into frontend `AppError`.              |
-| `src/features/settings/use-window-translucency.ts` | Loads/saves the local appearance preference and synchronizes native effect with CSS surfaces.      |
-| `src-tauri/src/commands/`                          | Tauri-specific adapters for app metadata and native window appearance.                             |
-| `src-tauri/src/services/`                          | Framework-independent application logic; today it returns package name and version.                |
-| `src-tauri/src/errors.rs`                          | Serializable `{ kind, message }` Rust error and `AppResult<T>` alias, ready for fallible commands. |
-| `src-tauri/src/agents/`, `src-tauri/src/database/` | Reserved module boundaries; no agent logic or database implementation.                             |
+| Location | Responsibility |
+| --- | --- |
+| `src/features/` | Current screens and settings; stored projects/conversations/messages are not displayed yet. |
+| `src/services/persistence.ts` | Typed, reusable Tauri invocation API and DTOs for future React wiring. |
+| `src/services/tauri.ts` | Existing app/window metadata gateway. |
+| `src-tauri/src/commands/` | Tauri adapters; persistence calls dispatch database work off the async runtime. |
+| `src-tauri/src/services/persistence.rs` | UUID and text validation; framework-independent use cases. |
+| `src-tauri/src/database/` | SQLite connections, migrations, parameterized repositories, transactional message/activity updates. |
+| `src-tauri/src/models.rs`, `errors.rs` | Serializable DTOs, enums and structured `{ kind, message }` errors. |
+| `src-tauri/src/agents/` | Reserved; no agents implemented. |
 
-## Native calls
+## Storage rules
 
-`SettingsPage` calls `getAppInfo()` in `src/services/tauri.ts`. That gateway invokes `get_app_info` through `@tauri-apps/api/core`. The Rust handler delegates to `services::get_app_info()`, which returns `{ name: "Talo", version: CARGO_PKG_VERSION }`. The command currently has no failure branch. If the invocation fails, the frontend converts the rejected value to `AppError` and displays its message on the Settings screen.
+`001_core.sql` defines projects, conversations, and messages with UUID text keys and UTC RFC 3339 timestamps. Messages have constrained roles (`system`, `user`, `assistant`, `tool`) and statuses (`completed`, `streaming`, `failed`, `interrupted`); empty text is rejected. A conversation may have no project. Removing a project sets its conversations' `project_id` to NULL; removing a conversation cascades to its messages. `002_external_sessions.sql` reserves a conversation-to-external-session association for later use; no provider is integrated and no credentials are stored. Indexed conversation/project lookups and ordered message queries support the current access patterns.
 
-`useWindowTranslucency()` checks `supports_window_translucency` when the app starts. On macOS/Windows, `set_window_translucency` applies/removes a native effect on the main window; a mutex prevents duplicate macOS effect views. Only after a successful native call does the renderer switch its backgrounds to translucent tints. On failure the toggle stays unchanged and Settings displays the error. The enabled flag and tint opacity are saved in browser `localStorage` for appearance only, then restored on next launch. Linux and browser previews do not activate the effect.
+Projects support create/list/get/update/delete; conversations create/list (optionally filtered by project)/get/rename/delete; messages create/list-by-conversation/update-content-and-status. A missing ID returns `not_found`, malformed IDs or blank text return `validation`, and foreign-key failures return `constraint`. Updating a project replaces its optional description; pass `null` to clear it. No database path is supplied by the renderer.
 
-Keep Tauri types and macros in command/composition code. Services should accept and return plain data and remain usable without a window. If persistence or providers are added later, introduce adapters at their boundary rather than moving business behavior into handlers.
+## Existing native behavior
 
-## Runtime and security configuration
+App info, Haze image backgrounds, and native translucency/blur remain separate commands. Settings appearance preferences use `localStorage`; stored domain data uses SQLite. The macOS/Windows transparent window configuration and macOS dock/launch preparation still run in `lib.rs`. Linux and browser previews do not provide those native window effects.
 
-- `src-tauri/tauri.conf.json` starts Vite on port 5173 in development, bundles `../dist`, sets the product identifier and window size, and defines a restrictive Content Security Policy that includes the Tauri IPC connection.
-- `src-tauri/tauri.macos.conf.json` and `src-tauri/tauri.windows.conf.json` replace the main window configuration with transparent-window versions; Linux keeps the opaque base configuration. macOS requires `macOSPrivateApi` for Tauri's transparent webview. That private API means this configuration is not eligible for Mac App Store distribution; it is a distribution tradeoff, not required for a normal local build.
-- `src-tauri/capabilities/default.json` assigns `core:default` to the main window. New native permissions should be added only with the feature that needs them.
-- Tokio is declared with `rt-multi-thread` and `macros` for future asynchronous work. The app does not start a separate Tokio runtime or run background agent tasks today.
-- There is no SQLite schema, persisted domain data, secrets store, provider integration, MCP server, or agent orchestration. The appearance preference is the sole local setting. See [status](status.md).
-
-## Change map
-
-| To add...          | Start at...                                                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| A new screen       | `src/features/`, then navigation in `src/components/layout/navigation.ts` and `src/App.tsx`.                                                 |
-| A native operation | A service operation, then an adapter in `src-tauri/src/commands/`, registration in `lib.rs`, and a typed gateway in `src/services/tauri.ts`. |
-| A persistent store | A contract needed by the service, then its adapter under `src-tauri/src/database/`. Do not put SQL in a Tauri command.                       |
-
-See [development](development.md) for the local commands.
+The base Tauri CSP and main-window capability remain in `src-tauri/tauri.conf.json` and `src-tauri/capabilities/default.json`. macOS private API support in `tauri.macos.conf.json` precludes Mac App Store distribution with that configuration.

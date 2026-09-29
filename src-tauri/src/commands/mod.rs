@@ -1,4 +1,5 @@
 pub(crate) mod chat_background;
+pub(crate) mod persistence;
 pub(crate) mod window_appearance;
 
 use crate::errors::AppResult;

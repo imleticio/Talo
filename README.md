@@ -1,6 +1,6 @@
 # Talo
 
-Talo is an open-source desktop project for coordinating AI agents. Today it is an early application shell: you can navigate Chat, Agents, Projects, and Settings, but you cannot send messages, run agents, or save projects yet. The interface makes Your open-source desktop AI assistant.
+Talo is an open-source desktop project for coordinating AI agents. Today it has an early application shell and a native local storage API for projects, conversations, and messages. The screens are not connected to that API yet: chat sending and agent execution remain disabled.
 
 Talo is an open-source desktop AI assistant designed to help you get things done. Chat with AI, delegate tasks to specialized agents, and manage your workflows from one place.
 Our vision is to build an intelligent desktop companion that goes beyond conversations — an assistant that can take action, use tools, and work on your behalf.
@@ -30,9 +30,9 @@ For a browser-only UI preview, run `npm run dev` and open `http://localhost:5173
 | Area                     | Current behavior                                                              |
 | ------------------------ | ----------------------------------------------------------------------------- |
 | Chat                     | Empty state and disabled composer; no messages are sent.                      |
-| Agents and Projects      | Navigable placeholder screens; no records are created.                        |
+| Agents and Projects      | Navigable placeholder screens; native project CRUD is not wired to the UI.    |
 | Settings                 | Displays app info and optional native window translucency on macOS/Windows.   |
-| Storage and integrations | Appearance is saved locally; no projects, AI providers, or agents are stored. |
+| Storage and integrations | SQLite stores projects, conversations and messages via Tauri commands; appearance uses local settings. No AI providers or agents. |
 
 See [project status](docs/status.md) for the full capability inventory and proposed next areas of work.
 

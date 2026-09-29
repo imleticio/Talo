@@ -42,6 +42,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
     <div
       className="talo-shell flex h-dvh min-h-0 flex-col bg-sidebar text-foreground"
       data-has-haze={Boolean(imageUrl)}
+      data-sidebar-expanded={expanded}
       style={
         imageUrl
           ? hazeStyle(imageUrl, background.emptyOpacity, background.sessionOpacity)

@@ -18,10 +18,11 @@ pub struct ExternalSession {
     pub external_id: String,
 }
 
-const MIGRATIONS: [&str; 3] = [
+const MIGRATIONS: [&str; 4] = [
     include_str!("migrations/001_core.sql"),
     include_str!("migrations/002_external_sessions.sql"),
     include_str!("migrations/003_message_streaming_order.sql"),
+    include_str!("migrations/004_conversation_model.sql"),
 ];
 
 #[derive(Clone)]
@@ -216,10 +217,12 @@ impl Database {
             title: title.to_owned(),
             created_at: now.clone(),
             updated_at: now,
+            last_provider_id: None,
+            last_model_id: None,
         };
         self.connect()?
             .execute(
-                "INSERT INTO conversations VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO conversations (id, project_id, title, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![
                     conversation.id,
                     conversation.project_id,
@@ -268,6 +271,24 @@ impl Database {
             return Err(not_found("Conversation"));
         }
         self.get_conversation(id)
+    }
+
+    pub fn set_conversation_model(
+        &self,
+        id: &str,
+        model: Option<&(String, String)>,
+    ) -> AppResult<()> {
+        let changed = self
+            .connect()?
+            .execute(
+                "UPDATE conversations SET last_provider_id = ?2, last_model_id = ?3 WHERE id = ?1",
+                params![id, model.map(|model| &model.0), model.map(|model| &model.1)],
+            )
+            .map_err(sql_error)?;
+        if changed == 0 {
+            return Err(not_found("Conversation"));
+        }
+        Ok(())
     }
 
     pub fn delete_conversation(&self, id: &str) -> AppResult<()> {
@@ -435,6 +456,8 @@ fn conversation_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
         title: row.get(2)?,
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
+        last_provider_id: row.get(5)?,
+        last_model_id: row.get(6)?,
     })
 }
 

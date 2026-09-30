@@ -38,7 +38,7 @@ fn migrates_empty_database_and_reopens_without_resetting_records() {
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        3
+        4
     );
     assert_eq!(service::get_project(&db, project.id).unwrap().name, "Home");
     assert_eq!(service::list_conversations(&db, None).unwrap().len(), 1);
@@ -76,7 +76,7 @@ fn upgrades_v1_without_removing_existing_data() {
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        3
+        4
     );
     assert_eq!(
         connection
@@ -523,6 +523,9 @@ fn upgrades_existing_messages_in_legacy_order_without_losing_relationships() {
 
     let db = Database::initialize(dir.path()).unwrap();
     let messages = service::list_messages(&db, conversation.clone()).unwrap();
+    let legacy = service::get_conversation(&db, conversation.clone()).unwrap();
+    assert!(legacy.last_provider_id.is_none());
+    assert!(legacy.last_model_id.is_none());
     assert_eq!(
         messages
             .iter()
@@ -591,6 +594,49 @@ fn upgrades_existing_messages_in_legacy_order_without_losing_relationships() {
             )
             .unwrap(),
         0
+    );
+}
+
+#[test]
+fn conversation_model_survives_restart_and_can_be_cleared() {
+    let dir = tempdir().unwrap();
+    let db = Database::initialize(dir.path()).unwrap();
+    let conversation = service::create_conversation(&db, None, "Model".into()).unwrap();
+    let other = service::create_conversation(&db, None, "Untouched".into()).unwrap();
+    assert!(conversation.last_model_id.is_none());
+    db.set_conversation_model(&conversation.id, Some(&("provider".into(), "model".into())))
+        .unwrap();
+    drop(db);
+    let db = Database::initialize(dir.path()).unwrap();
+    let restored = service::get_conversation(&db, conversation.id.clone()).unwrap();
+    assert_eq!(restored.last_provider_id.as_deref(), Some("provider"));
+    assert_eq!(restored.last_model_id.as_deref(), Some("model"));
+    assert!(
+        service::get_conversation(&db, other.id)
+            .unwrap()
+            .last_model_id
+            .is_none()
+    );
+    let listed = service::list_conversations(&db, None).unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .find(|row| row.id == conversation.id)
+            .unwrap()
+            .last_model_id
+            .as_deref(),
+        Some("model")
+    );
+    db.set_conversation_model(&conversation.id, None).unwrap();
+    let cleared = service::get_conversation(&db, conversation.id.clone()).unwrap();
+    assert!(cleared.last_provider_id.is_none());
+    assert!(cleared.last_model_id.is_none());
+    service::delete_conversation(&db, conversation.id.clone()).unwrap();
+    assert_eq!(
+        db.set_conversation_model(&conversation.id, None)
+            .unwrap_err()
+            .kind,
+        "not_found"
     );
 }
 

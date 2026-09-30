@@ -15,6 +15,7 @@ pub struct AgentUpdate {
     pub message_id: Option<String>,
     pub part_id: Option<String>,
     pub snapshot: bool,
+    pub response_model: Option<(String, String)>,
     pub event: AgentEvent,
 }
 

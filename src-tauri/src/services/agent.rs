@@ -257,6 +257,7 @@ impl AgentService {
         let mut parts: HashMap<String, String> = HashMap::new();
         let mut order = Vec::new();
         let mut assistant_id: Option<String> = None;
+        let mut response_model: Option<Option<(String, String)>> = None;
         let deadline = tokio::time::Instant::now() + Duration::from_secs(600);
         loop {
             if run.cancelled.load(Ordering::SeqCst) {
@@ -274,6 +275,13 @@ impl AgentService {
                 continue;
             }
             if let AgentEvent::Started = next.event {
+                if response_model.as_ref() != Some(&next.response_model) {
+                    let id = session.conversation_id.clone();
+                    let model = next.response_model.clone();
+                    self.storage(move |db| db.set_conversation_model(&id, model.as_ref()))
+                        .await?;
+                    response_model = Some(next.response_model);
+                }
                 assistant_id = next.message_id;
                 continue;
             }

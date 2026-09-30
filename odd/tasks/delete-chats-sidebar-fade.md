@@ -22,11 +22,15 @@ delete/navigation/send races. Do not delete the external OpenCode session.
 Add a subtle fade to the scrollable Recent chats viewport, blending with its
 existing background. Show each faded edge only when content continues beyond
 it; preserve first/last row legibility, pointer access, themes, and collapsed UI.
-Reuse existing dependencies. No backend/schema changes or unrelated features.
+Reuse existing dependencies. Initial deletion/fading needed no backend changes;
+latest model-label request includes nullable conversation metadata and its
+migration, captured from the existing assistant events. No unrelated features.
 
 ## Route, configuration, and delivery
 
-- Branch: `feature/delete-chats-sidebar-fade`; starting commit: `9efa00b`.
+- Created branch: `feature/delete-chats-sidebar-fade`; starting commit: `9efa00b`.
+  Workspace subsequently committed T2 as `a69c8fc` and switched to `feat/chat`;
+  continue on that user-selected feature branch, preserving those changes.
 - T1/T2 route: delegated direct. Read-only worker `explore_chat` mapped the
   shell, hook, persistence API, Rust deletion/cascade, styles, and verification
   configuration (4+ files). Preparation and multi-file writer triggers apply.
@@ -40,11 +44,13 @@ Reuse existing dependencies. No backend/schema changes or unrelated features.
   fixture for runtime checks; never inspect ambient profiles or credentials.
 - RDD: disabled/unmanaged. CLI reports on/default with both overrides unset;
   user's explicit default-off policy controls. No reviews or mode changes.
-- Delivery: `ask-on-risk`; revised forecast 390–420 authored additions + deletions
-  including verification documentation. Running count after T1: 303. No PR slices published.
+- Delivery: `ask-on-risk`; T3 forecast 180–260 authored changed lines and T4
+  forecast 110–170, plus recovery evidence. Running count through T2: 412.
+  Plan separate coherent slices for model persistence and UI refinement.
   About 400 lines is a planning guide, not a correctness limit or size target.
-- Rollback: remove these frontend deletion controls/hook integration and list
-  fading independently; existing persistence commands remain untouched.
+- Rollback: remove frontend deletion controls/card UI and fading independently.
+  Model capture/readers can be reverted while leaving harmless nullable added
+  columns in existing databases; do not drop user data or downgrade migrations.
 
 ## Tasks and acceptance criteria
 
@@ -59,11 +65,20 @@ Reuse existing dependencies. No backend/schema changes or unrelated features.
       no fade when all rows fit; first/last rows and controls remain accessible;
       verify light/dark, narrow view, keyboard access, and collapsed sidebar.
       Run static/runtime checks and record commit identity and verification limits.
-- [ ] T3 — Refine chat cards and show the model used (delegated).
+- [x] T3 — Persist the model actually used by the latest response (delegated).
       Mapping/preparation trigger: model provenance crosses UI, hook, services,
-      and persistence. Explore before selecting storage/API changes. Render a
+      and persistence. Mapper `map_chat_cards_model` found conversations/messages
+      have no saved model and composer selection is global. Capture providerID/
+      modelID from existing assistant message.updated events into nullable local
+      conversation metadata; migrate existing databases safely, preserve cascade
+      deletion, and avoid extra provider/session requests. Model-less legacy
+      conversations remain unknown. Run focused existing Rust tests and formatting
+      plus frontend checks as applicable; record commit and evidence.
+- [ ] T4 — Refine chat cards and show latest-response model (delegated).
+      Writer trigger: shell, frontend persistence type, and styles. Render a
       single coherent selected-card surface, subtle smaller delete at bottom
-      right, model secondary metadata; preserve keyboard/confirmation/error
+      right, model secondary metadata (name from matching catalog or stored ID);
+      preserve keyboard/confirmation/error
       behavior, concurrency guards and dynamic fading. Historical unknown
       models must not be fabricated from the current composer selection.
       Check frontend and applicable native/runtime behavior.
@@ -96,17 +111,33 @@ regression passed 14/14. Reports `/tmp/talo-delete-chats-fade-results.json` and
 `/tmp/talo-delete-chats-delete-results.json`. Parent inspected dark/light Haze
 mid-scroll and narrow last-row confirmation screenshots. Initial fixture
 timing/fit expectations were corrected; final reports have no runtime errors.
-Native WebKit inspection remains unavailable. T2 commit identity follows.
+Native WebKit inspection remains unavailable. T2 source commit: `a69c8fc` (81
+authored changed lines); conventional verification commit: `ec40499` (28 lines).
+RDD disabled/unmanaged. These commits preserve the user workspace transition.
 Chain preference received no response; `feature-branch-chain` is a provisional
 local planning assumption only. Slice 1 holds T1; slice 2 holds T2; T3 gets its
-own slice pending mapping. No publication or approval is inferred.
+own slice for persistence and T4 for card UI. No publication or approval is inferred.
 
 Existing Rust persistence tests passed (one assertion each, no user data):
 `cargo test --manifest-path src-tauri/Cargo.toml --test persistence project_removal_detaches_conversations_and_conversation_removal_cascades -- --exact`
 and `cargo test --manifest-path src-tauri/Cargo.toml --test persistence upgrades_existing_messages_in_legacy_order_without_losing_relationships -- --exact`.
 
+T3 verified: migration 004 adds nullable conversation model/provider IDs;
+existing SSE captures the actual assistant model, clears unknown metadata and
+deduplicates repeated metadata writes. Parent inspected the implementation.
+`cargo test --manifest-path src-tauri/Cargo.toml --test persistence --test opencode`
+passed 17 tests (11 persistence, 6 OpenCode), with no failures. Two existing
+smoke tests ignored: `real_opencode_can_start_and_create_a_session` and
+`real_opencode_prompt_reaches_sqlite`, requiring configured live OpenCode.
+Local server/temporary SQLite fixtures verify default/explicit resolution,
+different composer versus actual model, missing/incomplete metadata, duplicate
+updates, session/role filtering, restart/legacy migration and deletion.
+`cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
+`git diff --check` passed. No real credentials or provider requests.
+Source/test/migration authored count: 179. T3 commit identity follows.
+
 Engram mirror: observation `995`, project `talo`, topic
 `odd/delete-chats-sidebar-fade/tasks`, full document and repository-relative
 locator read back. MCP save initially failed due to ambiguous active sessions;
 independent `engram save --project talo` succeeded, without cloud autosync.
-Next: commit T2 and map T3 following the latest user feedback.
+Next: commit T3 and implement T4 following the latest user feedback.

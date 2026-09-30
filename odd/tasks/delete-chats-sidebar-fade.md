@@ -6,6 +6,9 @@ User requests a `feature/` branch to delete recent chats and add a modern fade
 at the top and bottom of the pictured chat list. Local implementation, checks,
 and work-unit commits are authorized. Remote execution, transfers, push, PRs,
 and merge are outside the scope.
+Latest feedback authorizes subtler cards with the delete button at the bottom
+right and the model actually used shown as secondary metadata, matching the
+second supplied image. Preserve working deletion and edge fades.
 
 ## Problem, approach, and scope
 
@@ -51,11 +54,19 @@ Reuse existing dependencies. No backend/schema changes or unrelated features.
       reports error; busy deletion/duplicate actions are guarded. Verify real UI and
       hook with mocked local IPC, no actual user data deletion/provider requests.
       Run static checks and record commit identity and verification limits.
-- [ ] T2 — Fade overflowing list edges (delegated: shell and CSS integration).
+- [x] T2 — Fade overflowing list edges (delegated: shell and CSS integration).
       Subtle top/bottom fades track scroll, overflow, resize, and list changes;
       no fade when all rows fit; first/last rows and controls remain accessible;
       verify light/dark, narrow view, keyboard access, and collapsed sidebar.
       Run static/runtime checks and record commit identity and verification limits.
+- [ ] T3 — Refine chat cards and show the model used (delegated).
+      Mapping/preparation trigger: model provenance crosses UI, hook, services,
+      and persistence. Explore before selecting storage/API changes. Render a
+      single coherent selected-card surface, subtle smaller delete at bottom
+      right, model secondary metadata; preserve keyboard/confirmation/error
+      behavior, concurrency guards and dynamic fading. Historical unknown
+      models must not be fabricated from the current composer selection.
+      Check frontend and applicable native/runtime behavior.
 
 ## Progress and evidence
 
@@ -77,6 +88,19 @@ RDD: disabled/unmanaged. Extra assertion verifies visible inline errors with
 strategy preference requested because the updated forecast can exceed 400;
 no answer/remote publishing authorization is assumed.
 
+T2 verified: conditional 22px masks and ResizeObserver/scroll measurement,
+with padding and no overlays or scroll mutation. All static checks passed.
+`node /tmp/talo-delete-chats-fixture/build.mjs` then
+`node /tmp/talo-delete-chats-cdp-check.mjs --fade` passed 14/14; deletion runner
+regression passed 14/14. Reports `/tmp/talo-delete-chats-fade-results.json` and
+`/tmp/talo-delete-chats-delete-results.json`. Parent inspected dark/light Haze
+mid-scroll and narrow last-row confirmation screenshots. Initial fixture
+timing/fit expectations were corrected; final reports have no runtime errors.
+Native WebKit inspection remains unavailable. T2 commit identity follows.
+Chain preference received no response; `feature-branch-chain` is a provisional
+local planning assumption only. Slice 1 holds T1; slice 2 holds T2; T3 gets its
+own slice pending mapping. No publication or approval is inferred.
+
 Existing Rust persistence tests passed (one assertion each, no user data):
 `cargo test --manifest-path src-tauri/Cargo.toml --test persistence project_removal_detaches_conversations_and_conversation_removal_cascades -- --exact`
 and `cargo test --manifest-path src-tauri/Cargo.toml --test persistence upgrades_existing_messages_in_legacy_order_without_losing_relationships -- --exact`.
@@ -85,4 +109,4 @@ Engram mirror: observation `995`, project `talo`, topic
 `odd/delete-chats-sidebar-fade/tasks`, full document and repository-relative
 locator read back. MCP save initially failed due to ambiguous active sessions;
 independent `engram save --project talo` succeeded, without cloud autosync.
-Next: implement and verify T2.
+Next: commit T2 and map T3 following the latest user feedback.

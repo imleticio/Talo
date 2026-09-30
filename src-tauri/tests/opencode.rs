@@ -9,7 +9,7 @@ use axum::{Json, Router};
 use futures_util::{Stream, StreamExt};
 use serde_json::{Value, json};
 use talo_lib::agents::opencode::{OpenCodeAdapter, OpenCodeClient};
-use talo_lib::agents::{AgentAdapter, AgentEvent};
+use talo_lib::agents::{AgentAdapter, AgentEvent, AgentModelChoice};
 use talo_lib::database::Database;
 use talo_lib::models::MessageStatus;
 use talo_lib::services::{agent::AgentService, persistence};
@@ -24,10 +24,24 @@ struct Mock {
     abort_called: AtomicBool,
     silent_abort: AtomicBool,
     malformed: AtomicBool,
+    expect_model: AtomicBool,
 }
 
 async fn health() -> Json<Value> {
     Json(json!({"healthy": true, "version": "1.18.32"}))
+}
+async fn providers() -> Json<Value> {
+    Json(json!({
+        "all": [
+            {"id": "opencode", "name": "OpenCode Zen", "models": {
+                "free-model": {"name": "Free Model", "variants": {"high": {}, "low": {}, "disabled": {"disabled": true}}}
+            }},
+            {"id": "unconnected", "name": "Unavailable", "models": {
+                "other": {"name": "Other"}
+            }}
+        ],
+        "connected": ["opencode"]
+    }))
 }
 async fn create(State(state): State<Arc<Mock>>) -> Json<Value> {
     if state.malformed.load(Ordering::SeqCst) {
@@ -48,6 +62,15 @@ async fn get_session(
 }
 async fn prompt(State(state): State<Arc<Mock>>, Json(body): Json<Value>) -> StatusCode {
     assert_eq!(body["parts"][0]["text"], "hello");
+    if state.expect_model.load(Ordering::SeqCst) {
+        assert_eq!(
+            body["model"],
+            json!({"providerID": "opencode", "modelID": "free-model"})
+        );
+        assert_eq!(body["variant"], "high");
+    } else {
+        assert!(body.get("model").is_none());
+    }
     let events = [
         json!({"type":"message.updated","properties":{"info":{"id":"msg_mock","sessionID":"ses_mock","role":"assistant"}}}),
         json!({"type":"message.part.delta","properties":{"sessionID":"ses_mock","messageID":"msg_mock","partID":"part_1","field":"text","delta":"Hello"}}),
@@ -95,9 +118,11 @@ async fn server() -> (String, Arc<Mock>, tokio::task::JoinHandle<()>) {
         abort_called: AtomicBool::new(false),
         silent_abort: AtomicBool::new(false),
         malformed: AtomicBool::new(false),
+        expect_model: AtomicBool::new(false),
     });
     let router = Router::new()
         .route("/global/health", get(health))
+        .route("/provider", get(providers))
         .route("/session", post(create))
         .route("/session/{id}", get(get_session))
         .route("/session/{id}/prompt_async", post(prompt))
@@ -141,7 +166,7 @@ async fn sends_streaming_reply_and_recovers_external_session_after_restart() {
         "constraint"
     );
     let result = service
-        .send(conversation.id.clone(), "hello".into(), |_| {})
+        .send(conversation.id.clone(), "hello".into(), None, |_| {})
         .await
         .unwrap();
     assert_eq!(result.content, "Hello world");
@@ -189,7 +214,7 @@ async fn aborts_running_session_and_preserves_partial_message() {
     let id = conversation.id.clone();
     let task = tokio::spawn(async move {
         running
-            .send(id, "hello".into(), move |event| {
+            .send(id, "hello".into(), None, move |event| {
                 let _ = updates.send(event.event);
             })
             .await
@@ -282,7 +307,7 @@ async fn remote_errors_preserve_draft_and_missing_remote_sessions_are_reported()
     mock.fail.store(true, Ordering::SeqCst);
     assert_eq!(
         service
-            .send(conversation.id.clone(), "hello".into(), |_| {})
+            .send(conversation.id.clone(), "hello".into(), None, |_| {})
             .await
             .unwrap_err()
             .kind,
@@ -299,6 +324,85 @@ async fn remote_errors_preserve_draft_and_missing_remote_sessions_are_reported()
     server.abort();
 }
 
+#[tokio::test]
+async fn lists_connected_models_and_sends_selected_variant() {
+    let dir = tempdir().unwrap();
+    let (url, mock, server) = server().await;
+    mock.expect_model.store(true, Ordering::SeqCst);
+    let db = Database::initialize(dir.path()).unwrap();
+    let conversation = persistence::create_conversation(&db, None, "Models".into()).unwrap();
+    let service = AgentService::new(
+        db.clone(),
+        Arc::new(OpenCodeAdapter::with_endpoint(dir.path().to_path_buf(), url).unwrap()),
+    );
+    let models = service.models().await.unwrap();
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0].name, "Free Model");
+    assert_eq!(models[0].variants, ["high", "low"]);
+    service
+        .create_session(conversation.id.clone())
+        .await
+        .unwrap();
+    let selected = AgentModelChoice {
+        provider_id: "opencode".into(),
+        model_id: "free-model".into(),
+        variant: Some("high".into()),
+    };
+    let answer = service
+        .send(
+            conversation.id.clone(),
+            "hello".into(),
+            Some(selected),
+            |_| {},
+        )
+        .await
+        .unwrap();
+    assert_eq!(answer.content, "Hello world");
+    let invalid = AgentModelChoice {
+        provider_id: "unconnected".into(),
+        model_id: "other".into(),
+        variant: None,
+    };
+    assert_eq!(
+        service
+            .send(
+                conversation.id.clone(),
+                "hello".into(),
+                Some(invalid),
+                |_| {}
+            )
+            .await
+            .unwrap_err()
+            .kind,
+        "validation"
+    );
+    let invalid_variant = AgentModelChoice {
+        provider_id: "opencode".into(),
+        model_id: "free-model".into(),
+        variant: Some("unknown".into()),
+    };
+    assert_eq!(
+        service
+            .send(
+                conversation.id.clone(),
+                "hello".into(),
+                Some(invalid_variant),
+                |_| {}
+            )
+            .await
+            .unwrap_err()
+            .kind,
+        "validation"
+    );
+    assert_eq!(
+        persistence::list_messages(&db, conversation.id)
+            .unwrap()
+            .len(),
+        2
+    );
+    server.abort();
+}
+
 // Optional local smoke check; the normal suite never requires an installed agent.
 #[tokio::test]
 #[ignore = "requires locally installed OpenCode"]
@@ -306,6 +410,7 @@ async fn real_opencode_can_start_and_create_a_session() {
     let dir = tempdir().unwrap();
     let adapter = OpenCodeAdapter::new(dir.path().to_path_buf()).unwrap();
     adapter.ensure_available().await.unwrap();
+    assert!(!adapter.models().await.unwrap().is_empty());
     let info = adapter.info().await.unwrap();
     assert!(info.available);
     let client = OpenCodeClient::new(info.endpoint.unwrap(), dir.path().to_str().unwrap()).unwrap();
@@ -323,4 +428,56 @@ async fn real_opencode_can_start_and_create_a_session() {
     restarted.ensure_available().await.unwrap();
     assert_eq!(restarted.get_session(&session).await.unwrap(), session);
     restarted.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires installed OpenCode with a configured model and credentials"]
+async fn real_opencode_prompt_reaches_sqlite() {
+    let dir = tempdir().unwrap();
+    let db = Database::initialize(dir.path()).unwrap();
+    let conversation = persistence::create_conversation(&db, None, "Live OpenCode".into()).unwrap();
+    let service = Arc::new(AgentService::new(
+        db.clone(),
+        Arc::new(OpenCodeAdapter::new(dir.path().to_path_buf()).unwrap()),
+    ));
+    service
+        .create_session(conversation.id.clone())
+        .await
+        .unwrap();
+    let model = service
+        .models()
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|model| model.provider_id == "opencode" && model.model_id == "big-pickle")
+        .expect("The configured OpenCode Zen Big Pickle model is required for the live test");
+    let selected = AgentModelChoice {
+        provider_id: model.provider_id,
+        model_id: model.model_id,
+        variant: None,
+    };
+    let running = service.clone();
+    let id = conversation.id.clone();
+    let task = tokio::spawn(async move {
+        running
+            .send(
+                id,
+                "Reply with the word hello. Do not use tools.".into(),
+                Some(selected),
+                |_| {},
+            )
+            .await
+    });
+    let answer = match tokio::time::timeout(std::time::Duration::from_secs(45), task).await {
+        Ok(result) => result.unwrap().unwrap(),
+        Err(_) => {
+            let _ = service.cancel(conversation.id.clone(), |_| {}).await;
+            panic!("OpenCode prompt did not finish within 45 seconds");
+        }
+    };
+    assert_eq!(answer.status, MessageStatus::Completed);
+    assert!(!answer.content.trim().is_empty());
+    let saved = persistence::list_messages(&db, conversation.id).unwrap();
+    assert_eq!(saved.len(), 2);
+    assert_eq!(saved[1].content, answer.content);
 }

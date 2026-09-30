@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use tokio::sync::{Mutex, Notify};
 
-use crate::agents::{AgentAdapter, AgentEvent, AgentInfo};
+use crate::agents::{AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice};
 use crate::database::{Database, ExternalSession};
 use crate::errors::{AppError, AppResult};
 use crate::models::{Message, MessageRole, MessageStatus};
@@ -61,6 +61,11 @@ impl AgentService {
         self.adapter.info().await
     }
 
+    pub async fn models(&self) -> AppResult<Vec<AgentModel>> {
+        self.adapter.ensure_available().await?;
+        self.adapter.models().await
+    }
+
     pub async fn create_session(&self, conversation_id: String) -> AppResult<ExternalSession> {
         let _sessions = self.sessions.lock().await;
         let id = conversation_id.clone();
@@ -106,12 +111,29 @@ impl AgentService {
         &self,
         conversation_id: String,
         content: String,
+        model: Option<AgentModelChoice>,
         emit: impl Fn(AgentNotification) + Send + Sync,
     ) -> AppResult<Message> {
         if content.trim().is_empty() || content.contains('\0') {
             return Err(AppError::new("validation", "Invalid message content"));
         }
         let session = self.get_session(conversation_id.clone()).await?;
+        if let Some(choice) = &model {
+            let models = self.adapter.models().await?;
+            if !models.iter().any(|available| {
+                available.provider_id == choice.provider_id
+                    && available.model_id == choice.model_id
+                    && choice
+                        .variant
+                        .as_ref()
+                        .is_none_or(|variant| available.variants.contains(variant))
+            }) {
+                return Err(AppError::new(
+                    "validation",
+                    "Selected OpenCode model is no longer available",
+                ));
+            }
+        }
         let mut runs = self.runs.lock().await;
         if runs.contains_key(&conversation_id) {
             return Err(AppError::new(
@@ -162,7 +184,7 @@ impl AgentService {
         // The stream is subscribed before prompting so even very fast responses are observed.
         let result = async {
             tokio::select! {
-                result = self.adapter.send_message(&session.external_id, &prompt) => result?,
+                result = self.adapter.send_message(&session.external_id, &prompt, model.as_ref()) => result?,
                 _ = run.cancel_signal.notified() => return Err(AppError::new("cancelled", "Run cancelled")),
             }
             self.consume(events, &session, &draft, &run, &emit).await

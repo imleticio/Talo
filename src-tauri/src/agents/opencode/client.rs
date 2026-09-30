@@ -6,7 +6,8 @@ use reqwest::{Client, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::json;
 
-use super::types::{Event, Health, Session, parse_sse};
+use super::types::{Event, Health, Providers, Session, parse_sse};
+use crate::agents::{AgentModel, AgentModelChoice};
 use crate::errors::{AppError, AppResult};
 
 #[derive(Clone)]
@@ -82,14 +83,66 @@ impl OpenCodeClient {
         valid_id(session.id)
     }
 
-    pub async fn prompt(&self, id: &str, content: &str) -> AppResult<()> {
+    pub async fn models(&self) -> AppResult<Vec<AgentModel>> {
+        let providers: Providers = self
+            .json(self.request(reqwest::Method::GET, "/provider"))
+            .await?;
+        let connected: std::collections::HashSet<_> = providers.connected.iter().collect();
+        let mut models = providers
+            .all
+            .into_iter()
+            .filter(|provider| connected.contains(&provider.id))
+            .flat_map(|provider| {
+                provider.models.into_iter().map(move |(model_id, model)| {
+                    let mut variants: Vec<_> = model
+                        .variants
+                        .into_iter()
+                        .filter(|(_, options)| {
+                            options.get("disabled").and_then(serde_json::Value::as_bool)
+                                != Some(true)
+                        })
+                        .map(|(name, _)| name)
+                        .collect();
+                    variants.sort();
+                    AgentModel {
+                        provider_id: provider.id.clone(),
+                        provider_name: provider.name.clone(),
+                        model_id,
+                        name: model.name,
+                        variants,
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        models.sort_by(|left, right| {
+            left.provider_name
+                .cmp(&right.provider_name)
+                .then_with(|| left.name.cmp(&right.name))
+                .then_with(|| left.model_id.cmp(&right.model_id))
+        });
+        Ok(models)
+    }
+
+    pub async fn prompt(
+        &self,
+        id: &str,
+        content: &str,
+        model: Option<&AgentModelChoice>,
+    ) -> AppResult<()> {
         let id = valid_id(id.to_owned())?;
+        let mut payload = json!({"parts": [{"type": "text", "text": content}]});
+        if let Some(model) = model {
+            payload["model"] = json!({"providerID": model.provider_id, "modelID": model.model_id});
+            if let Some(variant) = &model.variant {
+                payload["variant"] = json!(variant);
+            }
+        }
         self.response(
             self.request(
                 reqwest::Method::POST,
                 &format!("/session/{id}/prompt_async"),
             )
-            .json(&json!({"parts": [{"type": "text", "text": content}]})),
+            .json(&payload),
         )
         .await?;
         Ok(())

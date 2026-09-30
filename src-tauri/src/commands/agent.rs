@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Emitter, State};
 
-use crate::agents::AgentInfo;
+use crate::agents::{AgentInfo, AgentModel, AgentModelChoice};
 use crate::database::ExternalSession;
 use crate::errors::AppResult;
 use crate::models::Message;
@@ -9,6 +9,11 @@ use crate::services::agent::AgentService;
 #[tauri::command]
 pub async fn opencode_status(service: State<'_, AgentService>) -> AppResult<AgentInfo> {
     service.status().await
+}
+
+#[tauri::command]
+pub async fn opencode_models(service: State<'_, AgentService>) -> AppResult<Vec<AgentModel>> {
+    service.models().await
 }
 
 #[tauri::command]
@@ -33,9 +38,10 @@ pub async fn opencode_send_message(
     app: AppHandle,
     conversation_id: String,
     content: String,
+    model: Option<AgentModelChoice>,
 ) -> AppResult<Message> {
     service
-        .send(conversation_id, content, move |event| {
+        .send(conversation_id, content, model, move |event| {
             let _ = app.emit("agent:update", event);
         })
         .await

@@ -57,6 +57,7 @@ pub fn run() {
             commands::persistence::update_message,
             commands::persistence::recover_interrupted_message,
             commands::agent::opencode_status,
+            commands::agent::opencode_models,
             commands::agent::opencode_create_session,
             commands::agent::opencode_get_session,
             commands::agent::opencode_send_message,

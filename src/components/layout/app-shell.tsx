@@ -3,6 +3,7 @@ import { FolderClosed, MessageSquare, PanelLeftClose, PanelLeftOpen, Settings2 }
 import { Button } from '@/components/ui/button'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
 import { hazeStyle } from '@/features/chat/haze-style'
+import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import type { ChatBackground } from '@/features/settings/use-chat-background'
 import { isMacDesktop } from '@/lib/platform'
 import { navigation, type Section } from './navigation'
@@ -11,6 +12,7 @@ type AppShellProps = {
   section: Section
   onNavigate: (section: Section) => void
   background: ChatBackground
+  chat: ChatConversation
   children: ReactNode
 }
 
@@ -24,7 +26,7 @@ function initialSidebarState() {
   }
 }
 
-export function AppShell({ section, onNavigate, background, children }: AppShellProps) {
+export function AppShell({ section, onNavigate, background, chat, children }: AppShellProps) {
   const [expanded, setExpanded] = useState(initialSidebarState)
   const imageUrl = section !== 'settings' ? background.imageUrl : null
 
@@ -128,26 +130,61 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
               >
                 Recent chats
               </h2>
-              <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  chat.newChat()
+                  onNavigate('chat')
+                }}
+                disabled={chat.activity !== 'idle'}
+                className="mt-2 h-9 w-full justify-start px-2 text-xs text-muted-foreground"
+              >
                 <MessageSquare className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-                <span>No conversations yet</span>
-              </div>
+                New chat
+              </Button>
+              {chat.conversations.length === 0 ? (
+                <p className="mt-2 px-2 text-xs text-muted-foreground">No conversations yet</p>
+              ) : (
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {chat.conversations
+                    .slice()
+                    .reverse()
+                    .map((conversation) => (
+                      <Button
+                        key={conversation.id}
+                        type="button"
+                        variant="ghost"
+                        title={conversation.title}
+                        aria-current={chat.activeId === conversation.id ? 'page' : undefined}
+                        disabled={chat.activity !== 'idle'}
+                        onClick={() => {
+                          void chat.openConversation(conversation.id)
+                          onNavigate('chat')
+                        }}
+                        className="h-9 w-full justify-start truncate px-2 text-xs font-normal text-muted-foreground aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-foreground"
+                      >
+                        <span className="truncate">{conversation.title}</span>
+                      </Button>
+                    ))}
+                </div>
+              )}
             </section>
           </div>
 
           <div className="mt-auto px-4 pb-4">
             <div
               className={`relative flex h-10 items-center border-t px-5.5 text-xs text-muted-foreground ${expanded ? 'border-sidebar-border' : 'border-transparent'}`}
-              title="No provider connected"
+              title={chat.info?.name ?? 'OpenCode'}
               role="status"
-              aria-label="No provider connected"
+              aria-label={`OpenCode ${chat.connection.replace('_', ' ')}`}
             >
               <span
-                className="size-1.5 shrink-0 rounded-full bg-muted-foreground"
+                className={`size-1.5 shrink-0 rounded-full ${chat.connection === 'ready' ? 'bg-emerald-400' : 'bg-muted-foreground'}`}
                 aria-hidden="true"
               />
               <span className="talo-sidebar-status-label" aria-hidden="true">
-                No provider connected
+                OpenCode · {chat.connection.replace('_', ' ')}
               </span>
             </div>
             <Button
@@ -170,7 +207,7 @@ export function AppShell({ section, onNavigate, background, children }: AppShell
         <div
           className="talo-body haze-pane mr-3 mb-3 flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
           data-has-haze={Boolean(imageUrl)}
-          data-session-empty="true"
+          data-session-empty={!chat.live && chat.messages.length === 0}
           data-background-scope={background.scope}
         >
           {imageUrl ? (

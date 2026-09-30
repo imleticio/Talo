@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 function localTimeOfDay() {
   const hour = new Date().getHours()
   if (hour < 12) return 'morning'
@@ -12,7 +14,12 @@ function AnimatedWord({ word, start }: { word: string; start: number }) {
         <span
           key={index}
           className="chat-welcome-letter"
-          style={{ animationDelay: `${(start + index) * 20}ms` }}
+          style={
+            {
+              animationDelay: `${(start + index) * 16}ms`,
+              '--haze-letter-offset': `${-(start + index) * 18}px`,
+            } as CSSProperties
+          }
         >
           {letter}
         </span>
@@ -25,11 +32,17 @@ export function ChatWelcome() {
   const timeOfDay = localTimeOfDay()
 
   return (
-    <div className="chat-welcome pointer-events-none">
-      <h1 aria-label={`Good ${timeOfDay}`}>
-        <AnimatedWord word="Good" start={0} /> <AnimatedWord word={timeOfDay} start={5} />
+    <header className="chat-welcome">
+      <p className="chat-welcome-greeting">Good {timeOfDay}</p>
+      <h1 aria-label="Make room for what’s next.">
+        <span className="chat-welcome-phrase">
+          <AnimatedWord word="Make" start={0} /> <AnimatedWord word="room" start={5} />{' '}
+          <AnimatedWord word="for" start={10} />
+        </span>
+        <span className="chat-welcome-phrase chat-welcome-accent">
+          <AnimatedWord word="what’s" start={13} /> <AnimatedWord word="next." start={20} />
+        </span>
       </h1>
-      <p>What would you like to do?</p>
-    </div>
+    </header>
   )
 }

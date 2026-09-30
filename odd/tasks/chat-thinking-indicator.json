@@ -1,0 +1,94 @@
+{
+  "feature": "chat-thinking-indicator",
+  "locator": "odd/tasks/chat-thinking-indicator.json",
+  "objective": "Replace technical waiting copy with a lightweight Apple-inspired thinking indicator resembling the user reference: tiny animated dot matrix, Pensando… and elapsed seconds.",
+  "authorized_scope": "User explicitly asked to add thinking UI. Prior prohibition on creating or updating any .md persists. Local development/work-unit commits authorized; no remote operation.",
+  "evidence": "Active ChatMessage shows Waiting for OpenCode… plus Responding… on empty streaming response. Conversation lifecycle provides connecting/sending/cancelling and live response text; no actual reasoning signal. Use generic waiting state, no fake progress.",
+  "constraints": [
+    "Preserve bubble-free assistant, user send animation, pane-edge scroll and reader position.",
+    "Use React and CSS only; no dependencies, animated blur, canvas or provider changes.",
+    "Counter starts at mount, survives connecting/live/tool changes, ends with first text or terminal failure/cancellation.",
+    "One stable pending row, hide only its empty live placeholder, no duplicate status.",
+    "Reduced motion has a static mark; elapsed updates hidden from screen readers.",
+    "User .md prohibition overrides ODD Markdown persistence; JSON local recovery copy, Engram unavailable."
+  ],
+  "tdd": {
+    "mode": "unconfigured; ordinary functional checks",
+    "source": "package.json and completed chat-layout-polish feature record no configured TDD/test framework.",
+    "runner": null
+  },
+  "checks": [
+    "npm run typecheck",
+    "npm run lint",
+    "npm run build",
+    "npx prettier --check changed source files",
+    "git diff --check",
+    "Isolated local runtime waiting lifecycle, real elapsed interval and cleanup, normal/reduced motion, light/dark/narrow screenshots, first-send and scroll regression."
+  ],
+  "review": {
+    "mode": "disabled/unmanaged",
+    "source": "User-owned opt-in absent; do not infer enable from CLI default or change switch."
+  },
+  "delivery": {
+    "strategy": "ask-on-risk",
+    "forecast_authored_lines": 240,
+    "branch": "feat/opencode-adapter",
+    "base_commit": "2e684a8dd4e2bd3397e378f1e98cf271e09dbe5f",
+    "running_authored_lines": 0,
+    "pull_requests": []
+  },
+  "mirror": {
+    "status": "pending",
+    "topic": "odd/chat-thinking-indicator/tasks",
+    "reason": "Engram tools are not available; local JSON retains full recovery context."
+  },
+  "tasks": [
+    {
+      "id": "THINK-01",
+      "done": false,
+      "route": "delegated direct",
+      "trigger_evidence": "Preparation/mapping requires chat page, conversation lifecycle, transition and CSS; writer changes two or more non-trivial source files.",
+      "outcome": "One animated3x3 dot indicator with subdued warm accents, Spanish waiting/cancelling label and honest elapsed seconds, bubble-free and stable through startup.",
+      "files": [
+        "src/features/chat/chat-page.tsx",
+        "src/features/chat/chat-thinking.tsx",
+        "src/index.css"
+      ],
+      "acceptance": [
+        "Thinking visible immediately in connecting before live exists, including first message.",
+        "Waiting indicator unique and stable through activeId/live/history synchronization.",
+        "Timer increases and resets for next wait; no intervals left after content/failure/cancel/unmount.",
+        "First non-whitespace text replaces waiting; terminal failed/interrupted and meaningful tool status preserved.",
+        "Animation gentle, accessible, static with reduced motion; text legible on wallpaper in light/dark/narrow layouts.",
+        "First-send animation and respectful scrolling preserved."
+      ],
+      "verification": {
+        "status": "outcome verified; work-unit commit pending",
+        "checks": {
+          "npm run typecheck": "passed",
+          "npm run lint": "passed",
+          "npm run build": "passed",
+          "npx prettier --check src/features/chat/chat-page.tsx src/features/chat/chat-thinking.tsx src/index.css": "passed",
+          "git diff --check": "passed"
+        },
+        "runtime_command": "node /tmp/talo-chat-thinking-fixture/build.mjs; node /tmp/talo-chat-thinking-cdp-check.mjs; node /tmp/talo-chat-thinking-cdp-check.mjs --reduced",
+        "runtime": "Actual AppShell, ChatPage, ChatThinking and CSS tested with synthetic offline lifecycle in isolated local Chrome. Final reports read by parent: 16/16 normal and16/16 reduced; no failures or errors.",
+        "reports": [
+          "/tmp/talo-chat-thinking-normal-results.json",
+          "/tmp/talo-chat-thinking-reduced-results.json"
+        ],
+        "observed": "Elapsed0->2s over2200ms using real intervals; connecting->sending retains2s and one timer. First text/error/cancel/navigation/unmount removes indicator and interval; second request resets0s. Tool detail meaningful. User animation cleanup and reader position240->240 preserved. Parent visually inspected dark/light/narrow with warm wallpaper85%.",
+        "pending": [
+          "Direct native Tauri/WebKit inspection unavailable.",
+          "No real OpenCode/provider requests made; presentation verified with synthetic lifecycle."
+        ],
+        "failed_checks": []
+      },
+      "commit": null,
+      "rollback": "Revert thinking component, corresponding active ChatPage integration and scoped thinking CSS together; no persistence or backend changes.",
+      "rationale": "Use one keyed pending row independent of session/message IDs to preserve elapsed timer across startup. Suppress only empty active assistant row. CSS opacity wave and one1Hz interval keep indicator lightweight; screen readers do not announce timer ticks."
+    }
+  ],
+  "progress": "THINK-01 outcome and checks verified; work-unit commit pending.",
+  "next_step": "Commit the verified local change and record commit identity; then inspect native Tauri when app reloads."
+}

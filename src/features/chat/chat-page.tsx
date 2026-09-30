@@ -6,6 +6,7 @@ import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
 import { ChatWelcome } from './chat-welcome'
+import { ChatThinking } from './chat-thinking'
 import { useChatViewTransition } from './use-chat-view-transition'
 
 function ChatMessage({ message, chat }: { message: Message; chat: ChatConversation }) {
@@ -25,14 +26,14 @@ function ChatMessage({ message, chat }: { message: Message; chat: ChatConversati
             : 'chat-user-message max-w-[90%] min-w-0 rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[80%]'
         }
       >
-        <p className="whitespace-pre-wrap wrap-break-word">
-          {content || (status === 'streaming' ? 'Waiting for OpenCode…' : '')}
-        </p>
+        <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
         {isAssistant && (status !== 'completed' || (streaming && chat.live?.tool)) && (
           <p role="status" className="mt-2 text-xs text-muted-foreground">
             {streaming && chat.live?.tool ? `Tool: ${chat.live.tool} · ` : ''}
             {status === 'streaming'
-              ? 'Responding…'
+              ? chat.activity === 'cancelling'
+                ? 'Deteniendo…'
+                : 'Responding…'
               : status === 'failed'
                 ? 'Failed'
                 : 'Interrupted'}
@@ -48,7 +49,12 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
   const followLatest = useRef(true)
   const previousConversation = useRef({ activeId: chat.activeId, loading: chat.loadingHistory })
   const submitting = useRef(false)
-  const hasTranscript = chat.messages.length > 0 || chat.live !== null
+  const response =
+    chat.live?.text ||
+    chat.messages.find((message) => message.id === chat.live?.messageId)?.content ||
+    ''
+  const waiting = chat.activity !== 'idle' && !response.trim()
+  const hasTranscript = chat.messages.length > 0 || chat.live !== null || waiting
   const { rootRef, composerRef, transcriptRef, beginSend } = useChatViewTransition({
     hasTranscript,
     loadingHistory: chat.loadingHistory,
@@ -142,9 +148,20 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             aria-live="polite"
             className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-7 pt-3 pb-7"
           >
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} chat={chat} />
-            ))}
+            {messages.map((message) =>
+              waiting &&
+              message.id === chat.live?.messageId &&
+              message.role === 'assistant' ? null : (
+                <ChatMessage key={message.id} message={message} chat={chat} />
+              ),
+            )}
+            {waiting && (
+              <ChatThinking
+                key="chat-pending-response"
+                cancelling={chat.activity === 'cancelling'}
+                tool={chat.live?.tool ?? null}
+              />
+            )}
           </ol>
         </div>
       )}

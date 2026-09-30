@@ -1,0 +1,49 @@
+.talo-terminal-reveal {
+  overflow: hidden;
+  position: relative;
+}
+
+.talo-terminal-surface {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(var(--terminal-travel, 288px));
+  transition:
+    opacity 180ms ease-out,
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 280ms;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.025) inset,
+    0 8px 24px rgb(0 0 0 / 0.1);
+}
+
+.talo-terminal[data-open='true'] .talo-terminal-surface {
+  visibility: visible;
+  transition-delay: 0s;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.talo-terminal[data-open='false'] .talo-terminal-reveal {
+  overflow: visible;
+}
+
+.talo-terminal[data-open='false'] .talo-terminal-surface {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateY(100%);
+  pointer-events: none;
+}
+
+.talo-body {
+  transform-origin: top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talo-terminal-reveal,
+  .talo-terminal-surface {
+    transition: none;
+    transform: none;
+  }
+}

@@ -588,13 +588,34 @@
   background: transparent;
 }
 
-.talo-sidebar {
+.talo-sidebar-slot {
   width: 48px;
-  transition: width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+
+.talo-sidebar-slot[data-expanded='true'] {
+  width: 14rem;
+}
+
+.talo-sidebar {
+  width: 14rem;
+  height: 100%;
+  clip-path: inset(0 calc(14rem - 48px) 0 0);
+  transition: clip-path 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .talo-sidebar[data-expanded='true'] {
-  width: 14rem;
+  clip-path: inset(0);
+}
+
+.talo-sidebar:not([data-expanded='true']) > nav,
+.talo-sidebar:not([data-expanded='true']) > div:last-child {
+  width: 48px;
+}
+
+.talo-workspace-column {
+  position: relative;
+  transform-origin: left center;
 }
 
 .talo-sidebar[data-has-haze='true'] {

@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
+import { ReasoningPicker } from './reasoning-picker'
 import { ChatWelcome } from './chat-welcome'
 import { ChatThinking } from './chat-thinking'
 import { useChatViewTransition } from './use-chat-view-transition'
@@ -239,9 +240,13 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             disabled={!canSend}
             className="min-h-10 flex-1 resize-none border-0 bg-transparent p-0 text-base leading-relaxed shadow-none placeholder:text-muted-foreground/80 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-100 focus-visible:ring-0 md:text-base dark:bg-transparent dark:disabled:bg-transparent"
           />
-          <div className="flex items-center justify-between gap-4 pt-1">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="flex items-end justify-between gap-2 pt-1 sm:gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <ModelPicker key={chat.activity === 'idle' ? 'idle' : 'busy'} chat={chat} />
+              <ReasoningPicker
+                key={`reasoning-${chat.activity === 'idle' ? 'idle' : 'busy'}`}
+                chat={chat}
+              />
               {(chat.connection === 'not_installed' || chat.connection === 'error') && (
                 <Button
                   type="button"

@@ -38,8 +38,9 @@ function TerminalSession({
       lineHeight: 1.4,
       cursorBlink: true,
       scrollback: 5000,
+      allowTransparency: true,
       theme: {
-        background: '#17191d',
+        background: '#00000000',
         foreground: '#e5e7eb',
         cursor: '#e5e7eb',
         selectionBackground: '#47556980',
@@ -117,12 +118,12 @@ function TerminalSession({
   }, [visible])
 
   return (
-    <div className="relative h-full min-h-0 bg-[#17191d] p-4">
+    <div className="relative h-full min-h-0 p-4">
       <div ref={container} className="h-full min-h-0" />
       {(!isTauri() || error || exited) && (
         <div
           role="status"
-          className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#17191d] px-8 text-center text-xs text-slate-300"
+          className="talo-terminal-notice absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center text-xs text-slate-300"
         >
           <p>
             {!isTauri()
@@ -255,9 +256,9 @@ export function TerminalPanel({
         <div
           id="talo-terminal-content"
           style={{ height, '--terminal-travel': `${height + 8}px` } as CSSProperties}
-          className="talo-terminal-surface overflow-hidden rounded-2xl border border-border/60 bg-[#17191d]"
+          className="talo-terminal-surface overflow-hidden rounded-b-2xl"
         >
-          <div className="flex h-8 items-center gap-2 border-b border-white/5 bg-white/[0.025] px-4 text-xs text-slate-400">
+          <div className="talo-terminal-header flex h-8 items-center gap-2 px-4 text-xs text-slate-300/80">
             <TerminalSquare size={12} aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">{title}</span>
             <button

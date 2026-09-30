@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
+import { ChatWelcome } from './chat-welcome'
 
 function MessageBubble({ message, chat }: { message: Message; chat: ChatConversation }) {
   const isAssistant = message.role === 'assistant'
@@ -75,6 +76,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
     <div
       className={`chat-page flex min-h-0 flex-1 flex-col items-center px-5 pt-8 pb-[clamp(2.5rem,5vh,4rem)] sm:px-8 ${hasTranscript ? '' : 'justify-center'}`}
     >
+      {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
       <div className={`flex w-full max-w-3xl flex-col ${hasTranscript ? 'min-h-0 flex-1' : ''}`}>
         {hasTranscript ? (
           <ol

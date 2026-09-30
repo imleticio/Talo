@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 
-const dots = Array.from({ length: 9 }, (_, index) => index)
-
 export function ChatThinking({ cancelling, tool }: { cancelling: boolean; tool: string | null }) {
   const [startedAt] = useState(() => performance.now())
   const [elapsed, setElapsed] = useState(0)
@@ -16,13 +14,21 @@ export function ChatThinking({ cancelling, tool }: { cancelling: boolean; tool: 
   const duration = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
 
   return (
-    <li className="chat-thinking-indicator shrink-0">
+    <li className="chat-thinking-indicator shrink-0" data-cancelling={cancelling}>
       <div className="chat-thinking-line">
-        <span className="chat-thinking-dots" aria-hidden="true">
-          {dots.map((index) => (
-            <span key={index} style={{ animationDelay: `${index * 140}ms` }} />
-          ))}
-        </span>
+        <svg
+          className="chat-thinking-mark"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M4 6h3a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 1 1 0 0 1 1 1v7M20 6h-3a2 2 0 0 0-2 2v2a2 2 0 0 1-2 2 1 1 0 0 0-1 1" />
+        </svg>
         <span className="chat-thinking-label" role="status">
           {cancelling ? 'Deteniendo…' : 'Pensando…'}
         </span>

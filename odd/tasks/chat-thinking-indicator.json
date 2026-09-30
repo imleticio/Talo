@@ -1,8 +1,8 @@
 {
   "feature": "chat-thinking-indicator",
   "locator": "odd/tasks/chat-thinking-indicator.json",
-  "objective": "Replace technical waiting copy with a lightweight Apple-inspired thinking indicator resembling the user reference: tiny animated dot matrix, Pensando… and elapsed seconds.",
-  "authorized_scope": "User explicitly asked to add thinking UI. Prior prohibition on creating or updating any .md persists. Local development/work-unit commits authorized; no remote operation.",
+  "objective": "Give the waiting indicator an original Talo identity derived from its branched mark, with a quiet light pulse, clear Pensando label and honest elapsed time.",
+  "authorized_scope": "Continuing user-requested thinking UI; user rejected copied dot design and requested innovation, Talo personality, Apple-like care and elapsed time. Prior .md prohibition retained; update existing JSON recovery document. Local source changes and work-unit commits only; no remote operation.",
   "evidence": "Active ChatMessage shows Waiting for OpenCode… plus Responding… on empty streaming response. Conversation lifecycle provides connecting/sending/cancelling and live response text; no actual reasoning signal. Use generic waiting state, no fake progress.",
   "constraints": [
     "Preserve bubble-free assistant, user send animation, pane-edge scroll and reader position.",
@@ -31,7 +31,7 @@
   },
   "delivery": {
     "strategy": "ask-on-risk",
-    "forecast_authored_lines": 240,
+    "forecast_authored_lines": 397,
     "branch": "feat/opencode-adapter",
     "base_commit": "2e684a8dd4e2bd3397e378f1e98cf271e09dbe5f",
     "running_authored_lines": 237,
@@ -96,8 +96,33 @@
       "commit": "a02a0f23f630f2d5596431bc5f0999a68234c949",
       "rollback": "Revert thinking component, corresponding active ChatPage integration and scoped thinking CSS together; no persistence or backend changes.",
       "rationale": "Use one keyed pending row independent of session/message IDs to preserve elapsed timer across startup. Suppress only empty active assistant row. CSS opacity wave and one1Hz interval keep indicator lightweight; screen readers do not announce timer ticks."
+    },
+    {
+      "id": "THINK-02",
+      "done": false,
+      "route": "delegated direct",
+      "trigger_evidence": "Mapping/preparation delegated across indicator, CSS, integration, lifecycle and project configuration; writer changes two non-trivial source files.",
+      "outcome": "Replace dot matrix with a Talo-derived branched SVG mark, gentle monochrome pulse, readable time and reduced-motion alternative.",
+      "files": [
+        "src/features/chat/chat-thinking.tsx",
+        "src/index.css"
+      ],
+      "acceptance": [
+        "Distinctive branched Talo mark rather than copied avatar/dots/spinner.",
+        "Elapsed seconds/minutes remain truthful, stable through lifecycle and readable.",
+        "One quiet lightweight animation; no blur, rainbow, fabricated percent or new dependencies.",
+        "Reduced motion static; timer and decoration silent to screen readers.",
+        "Tool, cancellation, first-text, first-send and reader-position behavior preserved."
+      ],
+      "verification": {
+        "status": "pending",
+        "failed_checks": []
+      },
+      "commit": null,
+      "rollback": "Revert only THINK-02 mark and scoped indicator styles, retaining THINK-01 waiting lifecycle integration.",
+      "rationale": "User rejects derivative dot matrix; derive identity from existing Talo branching glyph and emphasize elapsed time through typographic hierarchy."
     }
   ],
-  "progress": "THINK-01 verified and committed. No failed checks. Engram recovery mirror remains pending because unavailable.",
-  "next_step": "Reload native Tauri to inspect its WebKit appearance; local implementation is complete."
+  "progress": "THINK-01 retains verified waiting lifecycle; visual direction superseded by user feedback. THINK-02 explored, implementation pending. Engram mirror pending: unavailable.",
+  "next_step": "Delegate THINK-02 implementation, run existing static checks and isolated local lifecycle fixture, inspect screenshots, then commit the coherent work unit."
 }

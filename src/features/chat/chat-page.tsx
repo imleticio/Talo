@@ -6,6 +6,7 @@ import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
 import { ChatWelcome } from './chat-welcome'
+import { useChatViewTransition } from './use-chat-view-transition'
 
 function MessageBubble({ message, chat }: { message: Message; chat: ChatConversation }) {
   const isAssistant = message.role === 'assistant'
@@ -39,6 +40,11 @@ function MessageBubble({ message, chat }: { message: Message; chat: ChatConversa
 export function ChatPage({ chat }: { chat: ChatConversation }) {
   const scrollEnd = useRef<HTMLLIElement>(null)
   const hasTranscript = chat.messages.length > 0 || chat.live !== null
+  const { rootRef, composerRef } = useChatViewTransition({
+    hasTranscript,
+    loadingHistory: chat.loadingHistory,
+    activeId: chat.activeId,
+  })
   const canSend =
     chat.listenerReady &&
     chat.activity === 'idle' &&
@@ -74,6 +80,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
 
   return (
     <div
+      ref={rootRef}
       className={`chat-page flex min-h-0 flex-1 flex-col items-center px-5 pt-8 pb-[clamp(2.5rem,5vh,4rem)] sm:px-8 ${hasTranscript ? '' : 'justify-center'}`}
     >
       <div className={`flex w-full max-w-3xl flex-col ${hasTranscript ? 'min-h-0 flex-1' : ''}`}>
@@ -131,6 +138,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           </div>
         )}
         <form
+          ref={composerRef}
           onSubmit={submit}
           className="chat-composer flex min-h-30 flex-col rounded-2xl border p-4"
         >

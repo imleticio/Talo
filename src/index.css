@@ -538,7 +538,7 @@
 }
 
 .talo-shell {
-  --talo-titlebar-height: 0.75rem;
+  --talo-titlebar-height: 2.5rem;
 }
 
 .talo-titlebar,
@@ -578,7 +578,8 @@
   top: calc(-1 * var(--talo-titlebar-height));
 }
 
-.talo-sidebar[data-has-haze='true'] > * {
+.talo-sidebar[data-has-haze='true'] > *,
+.talo-shell[data-has-haze='true'] .talo-titlebar > * {
   position: relative;
   z-index: 1;
 }
@@ -598,6 +599,33 @@
 
 .talo-sidebar[data-has-haze='true'] {
   background: transparent;
+}
+
+.talo-chat-tabs [role='tablist'] {
+  scrollbar-width: none;
+}
+
+.talo-chat-tabs [role='tablist']::-webkit-scrollbar {
+  display: none;
+}
+
+.dark .talo-chat-tab[data-active='true'] {
+  background: linear-gradient(145deg, rgb(66 72 84 / 35%), rgb(24 27 34 / 60%));
+  border-color: rgb(255 255 255 / 10%);
+}
+
+@media (hover: hover) {
+  .talo-chat-tab .talo-chat-tab-close {
+    opacity: 0;
+  }
+
+  .talo-chat-tab:is(:hover, :has(:focus-visible)) .talo-chat-tab-close {
+    opacity: 1;
+  }
+
+  .talo-chat-tab:is(:hover, :has(:focus-visible)) .talo-chat-tab-close:disabled {
+    opacity: 0.3;
+  }
 }
 
 .talo-sidebar-details {
@@ -682,6 +710,7 @@
 
 html.is-macos-desktop .talo-titlebar {
   height: 2rem;
+  padding-left: 6rem;
 }
 
 html.is-macos-desktop .talo-shell {

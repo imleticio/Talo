@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
+import { ChatTabs } from '@/features/chat/chat-tabs'
 import { hazeStyle } from '@/features/chat/haze-style'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import type { ChatBackground } from '@/features/settings/use-chat-background'
@@ -48,7 +49,10 @@ function RecentConversation({
   const [confirming, setConfirming] = useState(false)
   const modelDescriptionId = useId()
   const deleteButton = useRef<HTMLButtonElement>(null)
-  const blocked = chat.activity !== 'idle' || Boolean(chat.deletingId)
+  const blocked = Boolean(chat.deletingId)
+  const running = chat.tabs.some(
+    (tab) => tab.conversationId === conversation.id && tab.activity !== 'idle',
+  )
   const deleting = chat.deletingId === conversation.id
   const modelLabel = conversation.lastModelId
     ? (chat.models.find(
@@ -99,7 +103,7 @@ function RecentConversation({
           aria-label={`Delete chat: ${conversation.title}`}
           title="Delete chat"
           aria-expanded={confirming}
-          disabled={blocked}
+          disabled={blocked || running}
           onClick={() => setConfirming((current) => !current)}
           className={`absolute right-1 bottom-1 size-8 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
         >
@@ -139,7 +143,7 @@ function RecentConversation({
               type="button"
               variant="destructive"
               size="xs"
-              disabled={blocked}
+              disabled={blocked || running}
               onClick={async () => {
                 if (await chat.removeConversation(conversation.id)) onRemoved()
               }}
@@ -209,9 +213,10 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
     >
       <div
         data-tauri-drag-region={isMacDesktop ? '' : undefined}
-        className="talo-titlebar h-3 shrink-0 bg-sidebar"
-        aria-hidden="true"
-      />
+        className="talo-titlebar flex h-10 shrink-0 items-center bg-sidebar pr-3 pl-12"
+      >
+        <ChatTabs chat={chat} visible={section === 'chat'} onShowChat={() => onNavigate('chat')} />
+      </div>
       <div className="flex min-h-0 flex-1">
         <aside
           id="talo-sidebar"
@@ -300,7 +305,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                   chat.newChat()
                   onNavigate('chat')
                 }}
-                disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
+                disabled={Boolean(chat.deletingId)}
                 className="mt-2 h-9 w-full justify-start px-2 text-xs text-muted-foreground"
               >
                 <MessageSquare className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
@@ -364,21 +369,31 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
           </div>
         </aside>
 
-        <div
-          className="talo-body haze-pane mr-3 mb-3 flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
-          data-has-haze={Boolean(imageUrl)}
-          data-session-empty={!chat.live && chat.messages.length === 0}
-          data-background-scope={background.scope}
-        >
-          {imageUrl ? (
-            <GradientBlurBackground />
-          ) : section === 'chat' ? (
-            <div
-              className="chat-atmosphere pointer-events-none absolute inset-0 -z-10"
-              aria-hidden="true"
-            />
-          ) : null}
-          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
+        <div className="mr-3 mb-3 flex min-w-0 flex-1 flex-col">
+          <div
+            className="talo-body haze-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
+            data-has-haze={Boolean(imageUrl)}
+            data-session-empty={!chat.live && chat.messages.length === 0}
+            data-background-scope={background.scope}
+          >
+            {imageUrl ? (
+              <GradientBlurBackground />
+            ) : section === 'chat' ? (
+              <div
+                className="chat-atmosphere pointer-events-none absolute inset-0 -z-10"
+                aria-hidden="true"
+              />
+            ) : null}
+            <main
+              id={section === 'chat' ? `chat-panel-${chat.activeTabId}` : undefined}
+              role={section === 'chat' ? 'tabpanel' : undefined}
+              aria-labelledby={section === 'chat' ? `chat-tab-${chat.activeTabId}` : undefined}
+              tabIndex={section === 'chat' ? 0 : undefined}
+              className="flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
+            >
+              {children}
+            </main>
+          </div>
         </div>
       </div>
     </div>

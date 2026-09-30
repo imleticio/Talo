@@ -48,7 +48,7 @@ Reuse React and the Web Animations API; add no animation dependency.
 - Strategy: `ask-on-risk`; forecast 150–280 authored changed lines, excluding
   this recovery document. No chain strategy is needed at this forecast.
 - Branch point / starting commit: `6c1bba3`.
-- Running authored count: 0. Slice boundaries / PRs: none.
+- Running authored count: 260 across behavior and recovery evidence commits. Slice boundaries / PRs: none.
 - Each completed task closes with a Conventional Commit containing its code
   and verification documentation, while excluding pre-existing user files.
 - Rollback: remove the new transition hook and its ChatPage integration only;
@@ -63,7 +63,7 @@ Reuse React and the Web Animations API; add no animation dependency.
       interrupted animations clean up; typing/focus remain usable; Haze and both
       pre-existing untracked files remain unchanged. Run the listed static checks
       and observe the transition in a local runtime; record limitations honestly.
-      Commit: identity to be recorded immediately after the verified work-unit commit.
+      Commit: `35e8442ff4760d6bc4ebb9589717c2d9ef2327c4` (`feat(chat): animate initial view into conversation`).
       RDD: disabled/unmanaged.
 
 ## Progress, evidence, and next step
@@ -104,8 +104,9 @@ Static verification passed: `npm run typecheck`, `npm run lint`,
 and `git diff --check`. SHA-256 checks confirm Haze implementation files and
 the two pre-existing untracked files remain byte-identical.
 
-T1 outcome verified within these limits. Next: record the work-unit commit and
-optionally inspect the motion visually in the desktop app. No push or PR.
+T1 completed and committed within these verification limits. Next: optionally
+inspect the motion and native completion visually in the desktop app. No push
+or PR has been performed.
 
 Engram mirror: observation `994`, topic `odd/chat-view-transition/tasks`,
 project `talo`, containing this full document and its repository-relative locator.

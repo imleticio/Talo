@@ -37,8 +37,8 @@ Reuse existing dependencies. No backend/schema changes or unrelated features.
   fixture for runtime checks; never inspect ambient profiles or credentials.
 - RDD: disabled/unmanaged. CLI reports on/default with both overrides unset;
   user's explicit default-off policy controls. No reviews or mode changes.
-- Delivery: `ask-on-risk`; forecast 280–380 authored additions + deletions,
-  generated output excluded. Initial running count: 0. No PR slices published.
+- Delivery: `ask-on-risk`; revised forecast 390–420 authored additions + deletions
+  including verification documentation. Running count after T1: 303. No PR slices published.
   About 400 lines is a planning guide, not a correctness limit or size target.
 - Rollback: remove these frontend deletion controls/hook integration and list
   fading independently; existing persistence commands remain untouched.
@@ -64,14 +64,18 @@ operation guard, and safe clearing of active history/preferences. Typecheck,
 lint, build, changed-source Prettier, and diff whitespace checks passed. The
 documentation format check initially failed; formatting was corrected.
 Runtime: `node /tmp/talo-delete-chats-fixture/build.mjs` then
-`node /tmp/talo-delete-chats-cdp-check.mjs` passed 13/13 assertions on the actual
+`node /tmp/talo-delete-chats-cdp-check.mjs` passed 14/14 assertions on the actual
 hook/shell/page with mocked IPC: cancellation, active/inactive deletion, failure
 and retry, busy/duplicate guards, stale history, keyboard focus and collapse.
 Report: `/tmp/talo-delete-chats-delete-results.json`. Parent inspected failure
 and empty-view screenshots. Initial fixture/CDP startup and async expectations
 failed before runner corrections; the final report passes with no source bypass.
 Native Tauri/WebKit visual verification remains unavailable. No user data or
-provider operations were used. T1 commit identity will follow commit creation.
+provider operations were used. T1 commit: `1a550bf` (303 authored changed lines).
+RDD: disabled/unmanaged. Extra assertion verifies visible inline errors with
+40 chats. Planned slice 1: T1 commit; slice 2: T2 and final evidence. Chain
+strategy preference requested because the updated forecast can exceed 400;
+no answer/remote publishing authorization is assumed.
 
 Existing Rust persistence tests passed (one assertion each, no user data):
 `cargo test --manifest-path src-tauri/Cargo.toml --test persistence project_removal_detaches_conversations_and_conversation_removal_cascades -- --exact`
@@ -81,4 +85,4 @@ Engram mirror: observation `995`, project `talo`, topic
 `odd/delete-chats-sidebar-fade/tasks`, full document and repository-relative
 locator read back. MCP save initially failed due to ambiguous active sessions;
 independent `engram save --project talo` succeeded, without cloud autosync.
-Next: commit T1 and implement T2.
+Next: implement and verify T2.

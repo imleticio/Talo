@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   FolderClosed,
   MessageSquare,
@@ -138,7 +138,36 @@ function RecentConversation({
 export function AppShell({ section, onNavigate, background, chat, children }: AppShellProps) {
   const [expanded, setExpanded] = useState(initialSidebarState)
   const newChatButton = useRef<HTMLButtonElement>(null)
+  const sidebarViewport = useRef<HTMLDivElement>(null)
+  const conversationsContent = useRef<HTMLElement>(null)
   const imageUrl = section !== 'settings' ? background.imageUrl : null
+
+  useLayoutEffect(() => {
+    const viewport = sidebarViewport.current
+    const content = conversationsContent.current
+    if (!viewport || !content) return
+
+    function measure() {
+      if (!viewport) return
+      const visible = expanded && viewport.clientHeight > 0
+      const top = String(visible && viewport.scrollTop > 1)
+      const bottom = String(
+        visible && viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1,
+      )
+      if (viewport.dataset.fadeTop !== top) viewport.dataset.fadeTop = top
+      if (viewport.dataset.fadeBottom !== bottom) viewport.dataset.fadeBottom = bottom
+    }
+
+    measure()
+    viewport.addEventListener('scroll', measure, { passive: true })
+    const observer = new ResizeObserver(measure)
+    observer.observe(viewport)
+    observer.observe(content)
+    return () => {
+      viewport.removeEventListener('scroll', measure)
+      observer.disconnect()
+    }
+  }, [expanded])
 
   function toggleSidebar() {
     const next = !expanded
@@ -219,6 +248,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
           </nav>
 
           <div
+            ref={sidebarViewport}
             className="talo-sidebar-details mt-8 min-h-0 flex-1 overflow-y-auto px-5"
             aria-hidden={!expanded}
             inert={!expanded}
@@ -233,7 +263,11 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
               </div>
             </section>
 
-            <section aria-labelledby="sidebar-conversations" className="mt-8">
+            <section
+              ref={conversationsContent}
+              aria-labelledby="sidebar-conversations"
+              className="mt-8"
+            >
               <h2
                 id="sidebar-conversations"
                 className="text-xs font-medium text-sidebar-foreground"

@@ -73,6 +73,10 @@ Reuse React and the Web Animations API; add no animation dependency.
   lines); slice 2 holds intervening user commit `a1ada96` (275 lines, outside T2
   verification); slice 3 holds T2 and its evidence commit (forecast 110–200).
   These are planned local boundaries; no PRs or delivery branches were created.
+- Running authored count through T2 behavior commit `43c6c84`: 700 lines
+  (535 prior + 165 in T2). Slice 3 currently contains `43c6c84` plus this
+  small documentation evidence update, keeping the slice below 400 lines.
+- Including this evidence update: running authored count 720; T2 slice 185.
 - Each completed task closes with a Conventional Commit containing its code
   and verification documentation, while excluding pre-existing user files.
 - Rollback T2: revert its hook/ChatPage changes and Haze CSS refinement;
@@ -101,8 +105,8 @@ Reuse React and the Web Animations API; add no animation dependency.
       chat-motion files remain untouched. Run typecheck, lint, build, Prettier,
       and an available browser runtime check.
       Outcome and automated checks observed; desktop visual feel remains a
-      manual follow-up. Commit identity to be recorded after the work-unit
-      commit. RDD: disabled/unmanaged.
+      manual follow-up. Commit: `43c6c84bc24733002cea8fa78d92998ce7f28e53`
+      (`feat(chat): smooth send motion and dim Haze`). RDD: disabled/unmanaged.
 
 ## Progress, evidence, and next step
 
@@ -191,17 +195,21 @@ at 340 ms: opacity 0.200798 and brightness 1.02855.
 
 Runtime preparation: `node /tmp/talo-chat-offline-fixture/build.mjs`.
 Normal runner: `python3 /tmp/talo-run-transition-check.py file:///tmp/talo-chat-offline-fixture/index.html`.
-Reduced runner uses an isolated Chrome profile and native
+Reduced runner: `python3 /tmp/talo-run-transition-reduced-check.py file:///tmp/talo-chat-offline-fixture/index.html`,
+using an isolated Chrome profile and native
 `--force-prefers-reduced-motion=reduce`. Native finish fired in the normal run;
 the reduced run required a synthetic finish event for the pre-existing
 controlled-animation completion-handler assertion. Both runs required Chrome
 termination after DOM capture. No real provider calls were made. Desktop
 visual feel remains unverified because the available UI tooling could not
 inspect the development window. T2 is complete within these stated limits.
+Both runners write `/tmp/talo-chat-transition-results.json`; the reduced run
+overwrote the normal report. Normal evidence is retained in the tool transcript;
+the reduced JSON was read back and all 33 results passed.
 
-Next: record the verified work-unit commit, then assess visual feel in the
-running desktop app when available. The provisional chain strategy above is
-planning only. No push or PR has been performed.
+T2 committed with its implementation and verification document. Next: assess
+visual feel in the running desktop app when available. The provisional chain
+strategy above is planning only. No push or PR has been performed.
 
 Engram mirror: observation `994`, topic `odd/chat-view-transition/tasks`,
 project `talo`, containing this full document and its repository-relative locator.

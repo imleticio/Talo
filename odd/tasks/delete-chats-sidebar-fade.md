@@ -45,7 +45,7 @@ migration, captured from the existing assistant events. No unrelated features.
 - RDD: disabled/unmanaged. CLI reports on/default with both overrides unset;
   user's explicit default-off policy controls. No reviews or mode changes.
 - Delivery: `ask-on-risk`; T3 forecast 180–260 authored changed lines and T4
-  forecast 110–170, plus recovery evidence. Running count through T3: 646.
+  forecast 110–170, plus recovery evidence. Running count through T4: 728.
   Plan separate coherent slices for model persistence and UI refinement.
   About 400 lines is a planning guide, not a correctness limit or size target.
 - Rollback: remove frontend deletion controls/card UI and fading independently.
@@ -148,13 +148,15 @@ narrow light long-label screenshots. Fixture build and runner `--cards`,
 Reports: `/tmp/talo-delete-chats-{cards,delete,fade}-results.json`. Local Chrome,
 real frontend, simulated IPC only; native WebKit remains a manual follow-up.
 Fixture selector/geometry/timing expectations were corrected; final reports
-have no runtime errors. T4 source/docs authored count: 57; commit follows.
+have no runtime errors. T4 source/docs authored count: 57. Commit: `1631ce4`
+(82 lines including recovery evidence), planned slice 4; RDD disabled/unmanaged.
+Slice 4 includes the final documentation evidence commit. All four tasks done.
 
 Engram mirror: observation `995`, project `talo`, topic
 `odd/delete-chats-sidebar-fade/tasks`, full document and repository-relative
 locator read back. MCP save initially failed due to ambiguous active sessions;
 independent `engram save --project talo` succeeded, without cloud autosync.
-Next: commit T4 and record final identity. Restart the native development app
+Next: restart the native development app
 to load the new model-capture backend; historical unknowns are filled when a
 new assistant response reports its model. Native visual inspection remains
 pending. No push, PR, merge, provider calls, or actual user-chat deletion.

@@ -4,7 +4,7 @@ Talo is an open-source desktop workspace for coordinating AI assistants, project
 
 The project is currently in **early MVP development**. The native backend already provides local persistence and an initial OpenCode integration, while the React interface is still being connected to those capabilities.
 
-<img width="1919" height="1074" alt="image" src="https://github.com/user-attachments/assets/5230b2db-6509-44e9-bc9c-f67b7c446504" />
+<img width="1920" height="1074" alt="image" src="https://github.com/user-attachments/assets/9278d6f7-b984-407a-b034-8af2b1b50209" />
 
 
 ## Current status

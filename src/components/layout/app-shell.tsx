@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   FolderClosed,
   MessageSquare,
@@ -46,9 +46,17 @@ function RecentConversation({
   onRemoved: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
+  const modelDescriptionId = useId()
   const deleteButton = useRef<HTMLButtonElement>(null)
   const blocked = chat.activity !== 'idle' || Boolean(chat.deletingId)
   const deleting = chat.deletingId === conversation.id
+  const modelLabel = conversation.lastModelId
+    ? (chat.models.find(
+        (model) =>
+          model.providerId === conversation.lastProviderId &&
+          model.modelId === conversation.lastModelId,
+      )?.name ?? conversation.lastModelId)
+    : 'Model not recorded'
 
   function cancel() {
     if (deleting) return
@@ -60,18 +68,28 @@ function RecentConversation({
     <div className="group min-w-0">
       <div
         data-active={chat.activeId === conversation.id}
-        className="flex min-w-0 items-center rounded-lg data-[active=true]:bg-sidebar-accent"
+        className="talo-chat-card relative min-w-0 rounded-xl border border-transparent hover:bg-sidebar-accent/50 data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent"
       >
         <Button
           type="button"
           variant="ghost"
           title={conversation.title}
+          aria-label={conversation.title}
+          aria-describedby={modelDescriptionId}
           aria-current={chat.activeId === conversation.id ? 'page' : undefined}
           disabled={blocked}
           onClick={onOpen}
-          className="h-9 min-w-0 flex-1 justify-start truncate px-2 text-xs font-normal text-muted-foreground aria-[current=page]:text-sidebar-foreground"
+          className="talo-chat-card-open h-16 w-full min-w-0 flex-col items-start justify-center gap-1 rounded-xl border-0 bg-transparent py-2.5 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
         >
-          <span className="truncate">{conversation.title}</span>
+          <span
+            id={modelDescriptionId}
+            data-chat-model
+            title={`Last response model: ${modelLabel}`}
+            className="w-full truncate text-[10px] leading-4 text-muted-foreground"
+          >
+            {modelLabel}
+          </span>
+          <span className="w-full truncate leading-5">{conversation.title}</span>
         </Button>
         <Button
           ref={deleteButton}
@@ -83,9 +101,9 @@ function RecentConversation({
           aria-expanded={confirming}
           disabled={blocked}
           onClick={() => setConfirming((current) => !current)}
-          className={`size-9 text-muted-foreground hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
+          className={`absolute right-1 bottom-1 size-8 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
         >
-          <Trash2 className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
+          <Trash2 className="size-3" strokeWidth={1.8} aria-hidden="true" />
         </Button>
       </div>
       {confirming && (

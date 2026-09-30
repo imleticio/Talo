@@ -629,7 +629,8 @@
   mask-image: var(--sidebar-fade-mask);
 }
 
-.dark .talo-sidebar [aria-current='page'] {
+.dark .talo-sidebar [aria-current='page']:not(.talo-chat-card-open),
+.dark .talo-chat-card[data-active='true'] {
   background: linear-gradient(145deg, rgb(66 72 84 / 35%), rgb(24 27 34 / 60%));
   border-color: rgb(255 255 255 / 10%);
   -webkit-backdrop-filter: blur(6px) saturate(1.15);

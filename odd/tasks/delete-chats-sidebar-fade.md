@@ -45,7 +45,7 @@ migration, captured from the existing assistant events. No unrelated features.
 - RDD: disabled/unmanaged. CLI reports on/default with both overrides unset;
   user's explicit default-off policy controls. No reviews or mode changes.
 - Delivery: `ask-on-risk`; T3 forecast 180–260 authored changed lines and T4
-  forecast 110–170, plus recovery evidence. Running count through T2: 412.
+  forecast 110–170, plus recovery evidence. Running count through T3: 646.
   Plan separate coherent slices for model persistence and UI refinement.
   About 400 lines is a planning guide, not a correctness limit or size target.
 - Rollback: remove frontend deletion controls/card UI and fading independently.
@@ -74,7 +74,7 @@ migration, captured from the existing assistant events. No unrelated features.
       deletion, and avoid extra provider/session requests. Model-less legacy
       conversations remain unknown. Run focused existing Rust tests and formatting
       plus frontend checks as applicable; record commit and evidence.
-- [ ] T4 — Refine chat cards and show latest-response model (delegated).
+- [x] T4 — Refine chat cards and show latest-response model (delegated).
       Writer trigger: shell, frontend persistence type, and styles. Render a
       single coherent selected-card surface, subtle smaller delete at bottom
       right, model secondary metadata (name from matching catalog or stored ID);
@@ -134,10 +134,27 @@ different composer versus actual model, missing/incomplete metadata, duplicate
 updates, session/role filtering, restart/legacy migration and deletion.
 `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
 `git diff --check` passed. No real credentials or provider requests.
-Source/test/migration authored count: 179. T3 commit identity follows.
+Source/test/migration authored count: 179. T3 commit: `04b4824` (234 lines
+including recovery documentation), planned slice 3; RDD disabled/unmanaged.
+
+T4 verified: compact 66px cards, secondary model metadata, one selected surface,
+12px trash at bottom right with 32px target, keyboard/hover disclosure. Labels
+match saved provider/model IDs to catalog names, use stored ID if unavailable,
+and show `Model not recorded` for historical unknowns. Composer changes never
+rewrite historical labels. Typecheck, lint, build, changed-file Prettier and
+diff whitespace checks passed. Parent inspected active/inactive dark cards and
+narrow light long-label screenshots. Fixture build and runner `--cards`,
+`--fade`, and default deletion phases passed 40/40 assertions (12/14/14).
+Reports: `/tmp/talo-delete-chats-{cards,delete,fade}-results.json`. Local Chrome,
+real frontend, simulated IPC only; native WebKit remains a manual follow-up.
+Fixture selector/geometry/timing expectations were corrected; final reports
+have no runtime errors. T4 source/docs authored count: 57; commit follows.
 
 Engram mirror: observation `995`, project `talo`, topic
 `odd/delete-chats-sidebar-fade/tasks`, full document and repository-relative
 locator read back. MCP save initially failed due to ambiguous active sessions;
 independent `engram save --project talo` succeeded, without cloud autosync.
-Next: commit T3 and implement T4 following the latest user feedback.
+Next: commit T4 and record final identity. Restart the native development app
+to load the new model-capture backend; historical unknowns are filled when a
+new assistant response reports its model. Native visual inspection remains
+pending. No push, PR, merge, provider calls, or actual user-chat deletion.

@@ -13,6 +13,8 @@ export type Conversation = {
   id: string
   projectId: string | null
   title: string
+  lastProviderId: string | null
+  lastModelId: string | null
   createdAt: string
   updatedAt: string
 }

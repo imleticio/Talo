@@ -588,7 +588,7 @@
 }
 
 .talo-sidebar {
-  width: 76px;
+  width: 48px;
   transition: width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -649,12 +649,12 @@
 
 .talo-sidebar-label {
   position: absolute;
-  left: 3rem;
+  left: 2.5rem;
 }
 
 .talo-sidebar-status-label {
   position: absolute;
-  left: 2.375rem;
+  left: 2.5rem;
   white-space: nowrap;
 }
 

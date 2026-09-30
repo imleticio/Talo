@@ -222,7 +222,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
         >
           <div
             data-tauri-drag-region={isMacDesktop ? 'deep' : undefined}
-            className="talo-brand flex h-14 shrink-0 items-center px-4"
+            className="talo-brand flex h-10 shrink-0 items-center px-2"
           >
             <Button
               type="button"
@@ -233,17 +233,17 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
               title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
               aria-expanded={expanded}
               aria-controls="talo-sidebar"
-              className="size-11 rounded-xl text-muted-foreground transition-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="size-8 rounded-xl text-muted-foreground transition-none hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               {expanded ? (
-                <PanelLeftClose className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+                <PanelLeftClose className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
               ) : (
-                <PanelLeftOpen className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+                <PanelLeftOpen className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
               )}
             </Button>
           </div>
 
-          <nav className="flex flex-col gap-1 px-4" aria-label="Sections">
+          <nav className="flex flex-col gap-1 px-2" aria-label="Sections">
             {navigation
               .filter((item) => item.id !== 'settings')
               .map((item) => (
@@ -255,9 +255,9 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                   aria-label={item.label}
                   aria-current={section === item.id ? 'page' : undefined}
                   onClick={() => onNavigate(item.id)}
-                  className={`relative h-11 w-full justify-start rounded-xl pr-3 pl-3 text-[13px] font-medium transition-none ${section === item.id ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
+                  className={`relative h-8 w-full justify-start rounded-xl px-2 text-[13px] font-medium transition-none ${section === item.id ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
                 >
-                  <item.icon className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+                  <item.icon className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
                   <span className="talo-sidebar-label" aria-hidden="true">
                     {item.label}
                   </span>
@@ -332,9 +332,9 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
             </section>
           </div>
 
-          <div className="mt-auto px-4 pb-4">
+          <div className="mt-auto px-2 pb-2">
             <div
-              className={`relative flex h-10 items-center border-t px-5.5 text-xs text-muted-foreground ${expanded ? 'border-sidebar-border' : 'border-transparent'}`}
+              className={`relative flex h-8 items-center border-t px-3 text-xs text-muted-foreground ${expanded ? 'border-sidebar-border' : 'border-transparent'}`}
               title={chat.info?.name ?? 'OpenCode'}
               role="status"
               aria-label={`OpenCode ${chat.connection.replace('_', ' ')}`}
@@ -354,9 +354,9 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
               aria-label="Settings"
               aria-current={section === 'settings' ? 'page' : undefined}
               onClick={() => onNavigate('settings')}
-              className={`relative h-11 w-full justify-start rounded-xl pr-3 pl-3 text-[13px] font-medium transition-none ${section === 'settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
+              className={`relative h-8 w-full justify-start rounded-xl px-2 text-[13px] font-medium transition-none ${section === 'settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'}`}
             >
-              <Settings2 className="size-[18px]" strokeWidth={1.8} aria-hidden="true" />
+              <Settings2 className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
               <span className="talo-sidebar-label" aria-hidden="true">
                 Settings
               </span>

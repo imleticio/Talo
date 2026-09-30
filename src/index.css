@@ -133,6 +133,158 @@
   background: radial-gradient(ellipse 55% 48% at 50% 42%, rgb(62 84 111 / 12%), transparent 82%);
 }
 
+.talo-body > main:has(> .chat-page) {
+  overflow: hidden;
+}
+
+.chat-page {
+  --chat-gutter: clamp(20px, 3vw, 32px);
+}
+
+.chat-scroll-viewport {
+  padding-inline: var(--chat-gutter);
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent;
+}
+
+.chat-scroll-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-scroll-viewport::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 20%, transparent);
+  background-clip: padding-box;
+}
+
+.chat-scroll-viewport:hover {
+  scrollbar-color: color-mix(in srgb, var(--foreground) 32%, transparent) transparent;
+}
+
+.chat-scroll-viewport:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--foreground) 32%, transparent);
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .chat-scroll-viewport,
+  .chat-scroll-viewport:hover {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+
+.chat-composer-area {
+  width: calc(100% - var(--chat-gutter) * 2 - 12px);
+}
+
+.chat-user-message {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  box-shadow: 0 2px 8px -4px rgb(0 0 0 / 16%);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.dark .chat-user-message {
+  background: color-mix(in srgb, var(--secondary) 78%, transparent);
+}
+
+.chat-thinking-indicator {
+  padding-block: 4px;
+}
+
+.chat-thinking-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.chat-thinking-label {
+  color: color-mix(in srgb, var(--foreground) 68%, var(--background));
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+.chat-thinking-elapsed {
+  margin-left: 4px;
+  color: color-mix(in srgb, var(--foreground) 88%, var(--background));
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-thinking-mark {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: color-mix(in srgb, var(--foreground) 82%, var(--background));
+  animation: chat-thinking-breathe 3.2s ease-in-out infinite;
+}
+
+.chat-thinking-indicator[data-cancelling='true'] .chat-thinking-mark {
+  animation: none;
+  opacity: 0.65;
+}
+
+.chat-thinking-tool {
+  margin: 4px 0 0 32px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@keyframes chat-thinking-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-thinking-mark {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.haze-pane[data-has-haze='true'] .chat-page[data-has-transcript='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--background) 68%, transparent),
+    color-mix(in srgb, var(--background) 46%, transparent) 55%,
+    color-mix(in srgb, var(--background) 18%, transparent)
+  );
+}
+
+.dark .haze-pane[data-has-haze='true'] .chat-page[data-has-transcript='true']::before {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--background) 48%, transparent),
+    color-mix(in srgb, var(--background) 32%, transparent) 55%,
+    color-mix(in srgb, var(--background) 12%, transparent)
+  );
+}
+
 .chat-welcome {
   margin-bottom: 24px;
   padding-inline: 16px;
@@ -223,15 +375,40 @@
 }
 
 .chat-composer {
+  position: relative;
   background:
     linear-gradient(145deg, rgb(255 255 255 / 5%), transparent 55%),
     color-mix(in srgb, var(--card) 84%, transparent);
-  border-color: rgb(255 255 255 / 14%);
+  border-color: color-mix(in srgb, var(--foreground) 14%, transparent);
   box-shadow:
     0 18px 48px -28px rgb(0 0 0 / 70%),
     inset 0 1px 0 rgb(255 255 255 / 8%);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
+}
+
+.chat-send-reflection {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 15%,
+    color-mix(in srgb, var(--foreground) 10%, transparent) 43%,
+    rgb(255 255 255 / 18%) 50%,
+    transparent 72%
+  );
+  background-size: 200% 100%;
+}
+
+.chat-transfer-active textarea::placeholder {
+  opacity: 0;
+}
+
+.chat-send-copy {
+  will-change: transform;
 }
 
 .haze-pane[data-has-haze='true'] .chat-composer {
@@ -292,7 +469,9 @@
   background-size: cover;
   background-repeat: no-repeat;
   opacity: var(--chat-background-empty-opacity, 0.24);
-  transition: opacity 600ms ease-out;
+  transition:
+    filter 680ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 680ms cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-mask-image: var(--gradient-blur-mask);
   mask-image: var(--gradient-blur-mask);
 }
@@ -332,16 +511,7 @@
 }
 
 .haze-pane[data-session-empty='false'] > .gradient-blur-background {
-  --gradient-blur-soft: 5px;
-  --gradient-blur-strong: 12px;
-  --gradient-blur-soft-mask: linear-gradient(to bottom, transparent 18%, #000 70%);
-  --gradient-blur-strong-mask: linear-gradient(to bottom, transparent 22%, #000 76%);
-  --gradient-blur-overlay: linear-gradient(
-    to bottom,
-    transparent 15%,
-    color-mix(in srgb, var(--background) 70%, transparent) 76%
-  );
-  --gradient-blur-mask: linear-gradient(to bottom, #000 0 18%, transparent 76%);
+  filter: saturate(1.6) brightness(0.95);
   opacity: var(--chat-background-session-opacity, 0.14);
 }
 
@@ -428,6 +598,35 @@
 
 .talo-sidebar[data-has-haze='true'] {
   background: transparent;
+}
+
+.talo-sidebar-details {
+  --sidebar-fade-size: min(22px, 25%);
+  --sidebar-fade-top: 0px;
+  --sidebar-fade-bottom: 0px;
+  padding-block: 4px;
+  scroll-padding-block: 24px;
+}
+
+.talo-sidebar-details[data-fade-top='true'] {
+  --sidebar-fade-top: var(--sidebar-fade-size);
+}
+
+.talo-sidebar-details[data-fade-bottom='true'] {
+  --sidebar-fade-bottom: var(--sidebar-fade-size);
+}
+
+.talo-sidebar-details[data-fade-top='true'],
+.talo-sidebar-details[data-fade-bottom='true'] {
+  --sidebar-fade-mask: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--sidebar-fade-top),
+    #000 calc(100% - var(--sidebar-fade-bottom)),
+    transparent
+  );
+  -webkit-mask-image: var(--sidebar-fade-mask);
+  mask-image: var(--sidebar-fade-mask);
 }
 
 .dark .talo-sidebar [aria-current='page'] {

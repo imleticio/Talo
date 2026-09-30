@@ -1,0 +1,128 @@
+{
+  "feature": "chat-thinking-indicator",
+  "locator": "odd/tasks/chat-thinking-indicator.json",
+  "objective": "Give the waiting indicator an original Talo identity derived from its branched mark, with a quiet light pulse, clear Pensando label and honest elapsed time.",
+  "authorized_scope": "Continuing user-requested thinking UI; user rejected copied dot design and requested innovation, Talo personality, Apple-like care and elapsed time. Prior .md prohibition retained; update existing JSON recovery document. Local source changes and work-unit commits only; no remote operation.",
+  "evidence": "Active ChatMessage shows Waiting for OpenCode… plus Responding… on empty streaming response. Conversation lifecycle provides connecting/sending/cancelling and live response text; no actual reasoning signal. Use generic waiting state, no fake progress.",
+  "constraints": [
+    "Preserve bubble-free assistant, user send animation, pane-edge scroll and reader position.",
+    "Use React and CSS only; no dependencies, animated blur, canvas or provider changes.",
+    "Counter starts at mount, survives connecting/live/tool changes, ends with first text or terminal failure/cancellation.",
+    "One stable pending row, hide only its empty live placeholder, no duplicate status.",
+    "Reduced motion has a static mark; elapsed updates hidden from screen readers.",
+    "User .md prohibition overrides ODD Markdown persistence; JSON local recovery copy, Engram unavailable."
+  ],
+  "tdd": {
+    "mode": "unconfigured; ordinary functional checks",
+    "source": "package.json and completed chat-layout-polish feature record no configured TDD/test framework.",
+    "runner": null
+  },
+  "checks": [
+    "npm run typecheck",
+    "npm run lint",
+    "npm run build",
+    "npx prettier --check changed source files",
+    "git diff --check",
+    "Isolated local runtime waiting lifecycle, real elapsed interval and cleanup, normal/reduced motion, light/dark/narrow screenshots, first-send and scroll regression."
+  ],
+  "review": {
+    "mode": "disabled/unmanaged",
+    "source": "User-owned opt-in absent; do not infer enable from CLI default or change switch."
+  },
+  "delivery": {
+    "strategy": "ask-on-risk",
+    "forecast_authored_lines": 397,
+    "branch": "feat/opencode-adapter",
+    "base_commit": "2e684a8dd4e2bd3397e378f1e98cf271e09dbe5f",
+    "running_authored_lines": 237,
+    "pull_requests": [],
+    "slices": [
+      {
+        "base": "2e684a8dd4e2bd3397e378f1e98cf271e09dbe5f",
+        "commits": [
+          "a02a0f23f630f2d5596431bc5f0999a68234c949"
+        ],
+        "status": "local work unit; no PR requested"
+      }
+    ]
+  },
+  "mirror": {
+    "status": "pending",
+    "topic": "odd/chat-thinking-indicator/tasks",
+    "reason": "Engram tools are not available; local JSON retains full recovery context."
+  },
+  "tasks": [
+    {
+      "id": "THINK-01",
+      "done": true,
+      "route": "delegated direct",
+      "trigger_evidence": "Preparation/mapping requires chat page, conversation lifecycle, transition and CSS; writer changes two or more non-trivial source files.",
+      "outcome": "One animated3x3 dot indicator with subdued warm accents, Spanish waiting/cancelling label and honest elapsed seconds, bubble-free and stable through startup.",
+      "files": [
+        "src/features/chat/chat-page.tsx",
+        "src/features/chat/chat-thinking.tsx",
+        "src/index.css"
+      ],
+      "acceptance": [
+        "Thinking visible immediately in connecting before live exists, including first message.",
+        "Waiting indicator unique and stable through activeId/live/history synchronization.",
+        "Timer increases and resets for next wait; no intervals left after content/failure/cancel/unmount.",
+        "First non-whitespace text replaces waiting; terminal failed/interrupted and meaningful tool status preserved.",
+        "Animation gentle, accessible, static with reduced motion; text legible on wallpaper in light/dark/narrow layouts.",
+        "First-send animation and respectful scrolling preserved."
+      ],
+      "verification": {
+        "status": "complete; verified and committed",
+        "checks": {
+          "npm run typecheck": "passed",
+          "npm run lint": "passed",
+          "npm run build": "passed",
+          "npx prettier --check src/features/chat/chat-page.tsx src/features/chat/chat-thinking.tsx src/index.css": "passed",
+          "git diff --check": "passed"
+        },
+        "runtime_command": "node /tmp/talo-chat-thinking-fixture/build.mjs; node /tmp/talo-chat-thinking-cdp-check.mjs; node /tmp/talo-chat-thinking-cdp-check.mjs --reduced",
+        "runtime": "Actual AppShell, ChatPage, ChatThinking and CSS tested with synthetic offline lifecycle in isolated local Chrome. Parent read final reports: 18/18 normal and 18/18 reduced-motion, no failures or errors.",
+        "reports": [
+          "/tmp/talo-chat-thinking-normal-results.json",
+          "/tmp/talo-chat-thinking-reduced-results.json"
+        ],
+        "observed": "Elapsed 0→2s over 2200ms with two real ticks; connecting→sending retains time and one active interval. First text/error/cancel/navigation/unmount removes indicator and interval; second request resets 0s. Persisted placeholder and whitespace chunks retain a unique continuous indicator. Dots/timer aria-hidden, label role=status. Indicator has 9 opacity animations normally and 0 with reduced motion. Tool detail and first-send cleanup correct; reader position 240→240. Parent inspected dark/light/narrow on warm wallpaper at 85%.",
+        "pending": [
+          "Direct native Tauri/WebKit inspection unavailable.",
+          "No real OpenCode/provider requests made; presentation verified with synthetic lifecycle."
+        ],
+        "failed_checks": []
+      },
+      "commit": "a02a0f23f630f2d5596431bc5f0999a68234c949",
+      "rollback": "Revert thinking component, corresponding active ChatPage integration and scoped thinking CSS together; no persistence or backend changes.",
+      "rationale": "Use one keyed pending row independent of session/message IDs to preserve elapsed timer across startup. Suppress only empty active assistant row. CSS opacity wave and one1Hz interval keep indicator lightweight; screen readers do not announce timer ticks."
+    },
+    {
+      "id": "THINK-02",
+      "done": false,
+      "route": "delegated direct",
+      "trigger_evidence": "Mapping/preparation delegated across indicator, CSS, integration, lifecycle and project configuration; writer changes two non-trivial source files.",
+      "outcome": "Replace dot matrix with a Talo-derived branched SVG mark, gentle monochrome pulse, readable time and reduced-motion alternative.",
+      "files": [
+        "src/features/chat/chat-thinking.tsx",
+        "src/index.css"
+      ],
+      "acceptance": [
+        "Distinctive branched Talo mark rather than copied avatar/dots/spinner.",
+        "Elapsed seconds/minutes remain truthful, stable through lifecycle and readable.",
+        "One quiet lightweight animation; no blur, rainbow, fabricated percent or new dependencies.",
+        "Reduced motion static; timer and decoration silent to screen readers.",
+        "Tool, cancellation, first-text, first-send and reader-position behavior preserved."
+      ],
+      "verification": {
+        "status": "pending",
+        "failed_checks": []
+      },
+      "commit": null,
+      "rollback": "Revert only THINK-02 mark and scoped indicator styles, retaining THINK-01 waiting lifecycle integration.",
+      "rationale": "User rejects derivative dot matrix; derive identity from existing Talo branching glyph and emphasize elapsed time through typographic hierarchy."
+    }
+  ],
+  "progress": "THINK-01 retains verified waiting lifecycle; visual direction superseded by user feedback. THINK-02 explored, implementation pending. Engram mirror pending: unavailable.",
+  "next_step": "Delegate THINK-02 implementation, run existing static checks and isolated local lifecycle fixture, inspect screenshots, then commit the coherent work unit."
+}

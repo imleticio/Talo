@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { ArrowUp, LoaderCircle, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -6,26 +6,34 @@ import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
 import { ChatWelcome } from './chat-welcome'
+import { ChatThinking } from './chat-thinking'
+import { useChatViewTransition } from './use-chat-view-transition'
 
-function MessageBubble({ message, chat }: { message: Message; chat: ChatConversation }) {
+function ChatMessage({ message, chat }: { message: Message; chat: ChatConversation }) {
   const isAssistant = message.role === 'assistant'
   const streaming = chat.live?.messageId === message.id
   const content = streaming && chat.live ? chat.live.text || message.content : message.content
   const status = streaming ? 'streaming' : message.status
 
   return (
-    <li className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
+    <li className={`flex shrink-0 ${isAssistant ? 'justify-start' : 'justify-end'}`}>
       <div
-        className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[80%] ${isAssistant ? 'border border-border/70 bg-card/75 text-foreground' : 'bg-foreground text-background'}`}
+        data-message-id={message.id}
+        data-message-role={message.role}
+        className={
+          isAssistant
+            ? 'chat-assistant-message w-full min-w-0 text-[15px] leading-7 text-foreground'
+            : 'chat-user-message max-w-[90%] min-w-0 rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[80%]'
+        }
       >
-        <p className="whitespace-pre-wrap wrap-break-word">
-          {content || (status === 'streaming' ? 'Waiting for OpenCode…' : '')}
-        </p>
+        <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
         {isAssistant && (status !== 'completed' || (streaming && chat.live?.tool)) && (
           <p role="status" className="mt-2 text-xs text-muted-foreground">
             {streaming && chat.live?.tool ? `Tool: ${chat.live.tool} · ` : ''}
             {status === 'streaming'
-              ? 'Responding…'
+              ? chat.activity === 'cancelling'
+                ? 'Deteniendo…'
+                : 'Responding…'
               : status === 'failed'
                 ? 'Failed'
                 : 'Interrupted'}
@@ -37,11 +45,25 @@ function MessageBubble({ message, chat }: { message: Message; chat: ChatConversa
 }
 
 export function ChatPage({ chat }: { chat: ChatConversation }) {
-  const scrollEnd = useRef<HTMLLIElement>(null)
-  const hasTranscript = chat.messages.length > 0 || chat.live !== null
+  const scrollViewport = useRef<HTMLDivElement>(null)
+  const followLatest = useRef(true)
+  const previousConversation = useRef({ activeId: chat.activeId, loading: chat.loadingHistory })
+  const submitting = useRef(false)
+  const response =
+    chat.live?.text ||
+    chat.messages.find((message) => message.id === chat.live?.messageId)?.content ||
+    ''
+  const waiting = chat.activity !== 'idle' && !response.trim()
+  const hasTranscript = chat.messages.length > 0 || chat.live !== null || waiting
+  const { rootRef, composerRef, transcriptRef, beginSend } = useChatViewTransition({
+    hasTranscript,
+    loadingHistory: chat.loadingHistory,
+    activeId: chat.activeId,
+  })
   const canSend =
     chat.listenerReady &&
     chat.activity === 'idle' &&
+    !chat.deletingId &&
     !chat.loadingHistory &&
     !chat.sessionMissing &&
     (chat.info?.installed || chat.info?.available)
@@ -63,37 +85,94 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
         ]
       : chat.messages
 
-  useEffect(() => {
-    scrollEnd.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
-  }, [messages.length, chat.live?.text])
+  useLayoutEffect(() => {
+    const previous = previousConversation.current
+    previousConversation.current = { activeId: chat.activeId, loading: chat.loadingHistory }
+    if (previous.activeId !== chat.activeId || (previous.loading && !chat.loadingHistory)) {
+      followLatest.current = true
+    }
+    const viewport = scrollViewport.current
+    if (viewport && followLatest.current) viewport.scrollTop = viewport.scrollHeight
+  }, [chat.activeId, chat.loadingHistory, chat.messages, chat.live?.text, chat.live?.tool])
+
+  useLayoutEffect(() => {
+    const viewport = scrollViewport.current
+    const transcript = transcriptRef.current
+    if (!viewport || !transcript) return
+    const observer = new ResizeObserver(() => {
+      if (followLatest.current) viewport.scrollTop = viewport.scrollHeight
+    })
+    observer.observe(viewport)
+    observer.observe(transcript)
+    return () => observer.disconnect()
+  }, [hasTranscript, transcriptRef])
+
+  async function send() {
+    if (!canSend || !chat.draft.trim() || submitting.current) return
+    submitting.current = true
+    followLatest.current = true
+    const viewport = scrollViewport.current
+    if (viewport) viewport.scrollTop = viewport.scrollHeight
+    const settled = beginSend(chat.draft.trim())
+    try {
+      await chat.send()
+    } finally {
+      submitting.current = false
+      settled()
+    }
+  }
 
   function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    void chat.send()
+    void send()
   }
 
   return (
     <div
-      className={`chat-page flex min-h-0 flex-1 flex-col items-center px-5 pt-8 pb-[clamp(2.5rem,5vh,4rem)] sm:px-8 ${hasTranscript ? '' : 'justify-center'}`}
+      ref={rootRef}
+      data-has-transcript={hasTranscript}
+      className={`chat-page relative isolate flex min-h-0 flex-1 flex-col items-center overflow-hidden pt-6 pb-[clamp(1.25rem,2.5vh,2rem)] ${hasTranscript ? '' : 'justify-center'}`}
     >
-      <div className={`flex w-full max-w-3xl flex-col ${hasTranscript ? 'min-h-0 flex-1' : ''}`}>
-        {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
-        {hasTranscript ? (
+      {hasTranscript && (
+        <div
+          ref={scrollViewport}
+          className="chat-scroll-viewport min-h-0 w-full flex-1 overflow-y-auto"
+          onScroll={(event) => {
+            const viewport = event.currentTarget
+            followLatest.current =
+              viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 72
+          }}
+        >
           <ol
+            ref={transcriptRef}
             aria-label="Conversation"
             aria-live="polite"
-            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-6"
+            className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-7 pt-3 pb-7"
           >
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} chat={chat} />
-            ))}
-            <li ref={scrollEnd} aria-hidden="true" className="list-none" />
+            {messages.map((message) =>
+              waiting &&
+              message.id === chat.live?.messageId &&
+              message.role === 'assistant' ? null : (
+                <ChatMessage key={message.id} message={message} chat={chat} />
+              ),
+            )}
+            {waiting && (
+              <ChatThinking
+                key="chat-pending-response"
+                cancelling={chat.activity === 'cancelling'}
+                tool={chat.live?.tool ?? null}
+              />
+            )}
           </ol>
-        ) : chat.loadingHistory ? (
+        </div>
+      )}
+      <div className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
+        {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
+        {!hasTranscript && chat.loadingHistory && (
           <p role="status" className="mb-8 text-center text-sm text-muted-foreground">
             Loading conversation…
           </p>
-        ) : null}
+        )}
         {chat.error && (
           <div
             role="alert"
@@ -106,13 +185,20 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                   onClick={() => {
                     void chat.retrySession()
                   }}
                 >
                   Retry
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={chat.newChat}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
+                  onClick={chat.newChat}
+                >
                   New chat
                 </Button>
               </div>
@@ -121,6 +207,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                 type="button"
                 variant="ghost"
                 size="sm"
+                disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                 onClick={() => {
                   void chat.refreshStatus()
                 }}
@@ -131,8 +218,9 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           </div>
         )}
         <form
+          ref={composerRef}
           onSubmit={submit}
-          className="chat-composer flex min-h-30 flex-col rounded-2xl border p-4"
+          className="chat-composer flex min-h-30 shrink-0 flex-col rounded-3xl border p-4"
         >
           <label htmlFor="chat-message" className="sr-only">
             Message
@@ -144,7 +232,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
-                if (canSend && chat.draft.trim()) void chat.send()
+                void send()
               }
             }}
             placeholder="Ask anything…"
@@ -159,6 +247,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                   onClick={() => {
                     void chat.refreshStatus()
                   }}

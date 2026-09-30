@@ -10,6 +10,9 @@ still feels abrupt. This authorizes a focused refinement of the same transition.
 Latest feedback accepts the general appearance but asks for more perceptible
 fluidity and explicitly authorizes the Haze image darkening gradually on send.
 This supersedes the earlier Haze exclusion for that focused visual change.
+The user approved T2 and now grants creative freedom to further refine the
+same interaction for Talo's innovation identity, with Apple effects as a
+visual preference. T3 adds spatial continuity from drafted text to sent message.
 
 ## Problem and smallest design
 
@@ -45,6 +48,9 @@ Reuse React and the Web Animations API; add no animation dependency.
 - T2 latest refinement: delegated direct. `map_send_haze_refinement` mapped
   the active transition, send timing, Haze styles, shell, and settings. A bounded
   writer changes the transition hook and Haze CSS together (two-file trigger).
+- T3 route: delegated direct. `map_signature_send` mapped 4+ files and the
+  asynchronous send lifecycle. One bounded writer changes the active page,
+  transition hook, and feedback CSS (preparation and multi-file triggers).
 - TDD: unconfigured; no enabled TDD setting was found. Ordinary functional
   verification applies, without claiming a RED/GREEN cycle. Source:
   `package.json` and `docs/development.md` (no automated test suite).
@@ -77,6 +83,10 @@ Reuse React and the Web Animations API; add no animation dependency.
   (535 prior + 165 in T2). Slice 3 currently contains `43c6c84` plus this
   small documentation evidence update, keeping the slice below 400 lines.
 - Including this evidence update: running authored count 720; T2 slice 185.
+- T3 starts at `2ff7408`; forecast 260–380 authored changed lines including
+  recovery evidence. Use a new review slice for this coherent interaction,
+  retaining the provisional feature-branch-chain strategy. The 400-line task
+  heuristic is advisory; do not compress or omit checks to fit it.
 - Each completed task closes with a Conventional Commit containing its code
   and verification documentation, while excluding pre-existing user files.
 - Rollback T2: revert its hook/ChatPage changes and Haze CSS refinement;
@@ -107,6 +117,19 @@ Reuse React and the Web Animations API; add no animation dependency.
       Outcome and automated checks observed; desktop visual feel remains a
       manual follow-up. Commit: `43c6c84bc24733002cea8fa78d92998ce7f28e53`
       (`feat(chat): smooth send motion and dim Haze`). RDD: disabled/unmanaged.
+- [x] T3 — Add a distinctive send interaction with spatial continuity.
+      Route: delegated, due to mapping/preparation and three active source files.
+      Acceptance: Enter and button share guarded submission and immediate subtle
+      feedback; the newly persisted user message visually travels from the
+      composer into its real bubble; first-send motion and Haze remain coherent;
+      later sends use the message motion without replaying the initial layout;
+      real message content is complete and accessible, with safe behavior for
+      long/multiline text, backend delay/failure, history, navigation and scrolling;
+      reduced motion/cancellation/unmount restore real content and clean copies;
+      no dependencies, provider calls or service/persistence changes. Ordinary
+      typecheck, lint, build, changed-file Prettier and local runtime checks.
+      Outcome and checks observed; commit identity to be recorded after the
+      work-unit commit. RDD: disabled/unmanaged.
 
 ## Progress, evidence, and next step
 
@@ -210,6 +233,46 @@ the reduced JSON was read back and all 33 results passed.
 T2 committed with its implementation and verification document. Next: assess
 visual feel in the running desktop app when available. The provisional chain
 strategy above is planning only. No push or PR has been performed.
+
+T3 exploration: send immediately enters connecting, but the transcript can
+first contain only an assistant placeholder. Capture text and existing message
+IDs at submission, wait for the real new user bubble, measure after autoscroll,
+and animate an inert decorative copy. Keep the real composer and independent
+cleanup for initial movement and delayed message motion. Add a restrained
+glass reflection as immediate feedback. Avoid nonuniform text scaling; a long
+message may use a short entrance instead of a large or clipped flying copy.
+Retain T2 Haze settings and dim state. Desktop visual tooling remains unavailable;
+extend the local browser fixture to cover lifecycle and rendering boundaries.
+Microinteractions diagnostic remains 7/8 (9/10 rounded): feedback scaling is
+the row being improved through direct text-to-message continuity.
+
+T3 implemented by `implement_signature_send` in three active files (305 authored
+source lines). Enter/button share guarded submission and a synchronous lock.
+A 560 ms glass reflection confirms submission; ordinary persisted messages
+travel for 580 ms from the current composer position into their real bubble.
+The decorative source/destination ink overlaps while the material forms;
+placeholder hiding prevents doubled lettering. Tall messages use a 260 ms
+entrance without clipping or deforming content. T2 initial movement and Haze
+remain intact; send cleanup is independent and handles delayed destinations,
+failure/navigation, offscreen or resized destinations, reduced motion and
+unmount. Rollback: revert only T3 changes in ChatPage, the hook and feedback CSS.
+
+Final checks passed: `npm run typecheck`, `npm run lint`, `npm run build`,
+changed-source `npx prettier --check`, and `git diff --check`. Real-time offline
+Chrome passed 58 normal and 47 native reduced-motion assertions. Commands:
+`node /tmp/talo-chat-offline-fixture/build.mjs`,
+`node /tmp/talo-signature-cdp-check.mjs`, and
+`node /tmp/talo-signature-cdp-check.mjs --reduced`.
+Separate reports: `/tmp/talo-signature-normal-results.json` and
+`/tmp/talo-signature-reduced-results.json`. Native completion fired in both.
+Parent inspected start, early, mid and clean-landing PNGs under
+`/tmp/talo-signature-normal-*.png`; early ink stays visible and the real message
+is restored cleanly. Initial virtual-time/frame-readiness attempts failed to
+observe the transfer; real-time checks resolved that environment limitation.
+An offscreen-destination assertion exposed a cleanup edge, which was fixed and
+verified. Desktop visual feel remains unverified; no real provider calls were
+made. T3 complete within these limits. Next: record the work-unit commit and
+assess the motion in the desktop window when available.
 
 Engram mirror: observation `994`, topic `odd/chat-view-transition/tasks`,
 project `talo`, containing this full document and its repository-relative locator.

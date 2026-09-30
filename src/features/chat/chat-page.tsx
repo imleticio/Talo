@@ -17,6 +17,8 @@ function MessageBubble({ message, chat }: { message: Message; chat: ChatConversa
   return (
     <li className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
       <div
+        data-message-id={message.id}
+        data-message-role={message.role}
         className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[80%] ${isAssistant ? 'border border-border/70 bg-card/75 text-foreground' : 'bg-foreground text-background'}`}
       >
         <p className="whitespace-pre-wrap wrap-break-word">
@@ -39,8 +41,9 @@ function MessageBubble({ message, chat }: { message: Message; chat: ChatConversa
 
 export function ChatPage({ chat }: { chat: ChatConversation }) {
   const scrollEnd = useRef<HTMLLIElement>(null)
+  const submitting = useRef(false)
   const hasTranscript = chat.messages.length > 0 || chat.live !== null
-  const { rootRef, composerRef, transcriptRef } = useChatViewTransition({
+  const { rootRef, composerRef, transcriptRef, beginSend } = useChatViewTransition({
     hasTranscript,
     loadingHistory: chat.loadingHistory,
     activeId: chat.activeId,
@@ -73,9 +76,21 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
     scrollEnd.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
   }, [messages.length, chat.live?.text])
 
+  async function send() {
+    if (!canSend || !chat.draft.trim() || submitting.current) return
+    submitting.current = true
+    const settled = beginSend(chat.draft.trim())
+    try {
+      await chat.send()
+    } finally {
+      submitting.current = false
+      settled()
+    }
+  }
+
   function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    void chat.send()
+    void send()
   }
 
   return (
@@ -153,7 +168,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
-                if (canSend && chat.draft.trim()) void chat.send()
+                void send()
               }
             }}
             placeholder="Ask anything…"

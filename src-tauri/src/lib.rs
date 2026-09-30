@@ -8,11 +8,19 @@ pub mod errors;
 mod macos_glass;
 pub mod models;
 pub mod services;
+mod terminal;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(terminal::TerminalState::default())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                use tauri::Manager;
+                window.state::<terminal::TerminalState>().shutdown();
+            }
+        })
         .setup(|app| {
             use tauri::Manager;
             let directory = app.path().app_data_dir()?;
@@ -36,6 +44,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            terminal::terminal_open,
+            terminal::terminal_read,
+            terminal::terminal_write,
+            terminal::terminal_resize,
+            terminal::terminal_close,
             commands::get_app_info,
             commands::chat_background::save_chat_background,
             commands::window_appearance::supports_window_translucency,

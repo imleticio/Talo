@@ -16,6 +16,7 @@ import type { ChatBackground } from '@/features/settings/use-chat-background'
 import { isMacDesktop } from '@/lib/platform'
 import type { Conversation } from '@/services/persistence'
 import { navigation, type Section } from './navigation'
+import { TerminalPanel } from './terminal-panel'
 
 type AppShellProps = {
   section: Section
@@ -162,6 +163,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
   const newChatButton = useRef<HTMLButtonElement>(null)
   const sidebarViewport = useRef<HTMLDivElement>(null)
   const conversationsContent = useRef<HTMLElement>(null)
+  const workspace = useRef<HTMLDivElement>(null)
   const imageUrl = section !== 'settings' ? background.imageUrl : null
 
   useLayoutEffect(() => {
@@ -369,8 +371,9 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
           </div>
         </aside>
 
-        <div className="mr-3 mb-3 flex min-w-0 flex-1 flex-col">
+        <div className="mr-3 flex min-h-0 min-w-0 flex-1 flex-col">
           <div
+            ref={workspace}
             className="talo-body haze-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
             data-has-haze={Boolean(imageUrl)}
             data-session-empty={!chat.live && chat.messages.length === 0}
@@ -394,6 +397,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
               {children}
             </main>
           </div>
+          <TerminalPanel connection={chat.connection.replace('_', ' ')} workspace={workspace} />
         </div>
       </div>
     </div>

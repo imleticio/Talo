@@ -292,7 +292,9 @@
   background-size: cover;
   background-repeat: no-repeat;
   opacity: var(--chat-background-empty-opacity, 0.24);
-  transition: opacity 600ms ease-out;
+  transition:
+    filter 680ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 680ms cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-mask-image: var(--gradient-blur-mask);
   mask-image: var(--gradient-blur-mask);
 }
@@ -332,16 +334,7 @@
 }
 
 .haze-pane[data-session-empty='false'] > .gradient-blur-background {
-  --gradient-blur-soft: 5px;
-  --gradient-blur-strong: 12px;
-  --gradient-blur-soft-mask: linear-gradient(to bottom, transparent 18%, #000 70%);
-  --gradient-blur-strong-mask: linear-gradient(to bottom, transparent 22%, #000 76%);
-  --gradient-blur-overlay: linear-gradient(
-    to bottom,
-    transparent 15%,
-    color-mix(in srgb, var(--background) 70%, transparent) 76%
-  );
-  --gradient-blur-mask: linear-gradient(to bottom, #000 0 18%, transparent 76%);
+  filter: saturate(1.6) brightness(0.95);
   opacity: var(--chat-background-session-opacity, 0.14);
 }
 

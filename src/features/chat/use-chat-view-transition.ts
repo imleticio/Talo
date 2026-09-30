@@ -17,6 +17,7 @@ export function useChatViewTransition({
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLFormElement>(null)
+  const transcriptRef = useRef<HTMLOListElement>(null)
   const emptyLayout = useRef<EmptyLayout | null>(null)
   const previous = useRef({ hasTranscript, loadingHistory, activeId })
   const running = useRef<(() => void) | null>(null)
@@ -74,6 +75,7 @@ export function useChatViewTransition({
     const source = emptyLayout.current
     emptyLayout.current = null
     const composer = composerRef.current
+    const transcript = transcriptRef.current
     const root = rootRef.current
     if (
       before.hasTranscript ||
@@ -81,6 +83,7 @@ export function useChatViewTransition({
       navigating ||
       !source ||
       !composer ||
+      !transcript ||
       !root ||
       reducedMotion.current?.matches ||
       typeof composer.animate !== 'function'
@@ -110,16 +113,35 @@ export function useChatViewTransition({
         },
         { transform: 'none' },
       ],
-      { duration: 540, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      { duration: 680, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
     )
-    const farewell = ghost.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: 220,
-      easing: 'ease-out',
-      fill: 'forwards',
-    })
+    const farewell = ghost.animate(
+      [
+        { opacity: 1, transform: 'translateY(0)' },
+        { opacity: 0, transform: 'translateY(-16px)' },
+      ],
+      {
+        duration: 340,
+        easing: 'ease-in-out',
+        fill: 'forwards',
+      },
+    )
+    const entrance = transcript.animate(
+      [
+        { opacity: 0, transform: 'translateY(18px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      {
+        delay: 150,
+        duration: 440,
+        easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        fill: 'backwards',
+      },
+    )
     const cleanup = () => {
       movement.cancel()
       farewell.cancel()
+      entrance.cancel()
       ghost.remove()
       if (running.current === cleanup) running.current = null
     }
@@ -128,5 +150,5 @@ export function useChatViewTransition({
     running.current = cleanup
   }, [hasTranscript, loadingHistory, activeId])
 
-  return { rootRef, composerRef }
+  return { rootRef, composerRef, transcriptRef }
 }

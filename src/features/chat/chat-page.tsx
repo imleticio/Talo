@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { ArrowUp, LoaderCircle, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -40,7 +40,7 @@ function MessageBubble({ message, chat }: { message: Message; chat: ChatConversa
 export function ChatPage({ chat }: { chat: ChatConversation }) {
   const scrollEnd = useRef<HTMLLIElement>(null)
   const hasTranscript = chat.messages.length > 0 || chat.live !== null
-  const { rootRef, composerRef } = useChatViewTransition({
+  const { rootRef, composerRef, transcriptRef } = useChatViewTransition({
     hasTranscript,
     loadingHistory: chat.loadingHistory,
     activeId: chat.activeId,
@@ -69,7 +69,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
         ]
       : chat.messages
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     scrollEnd.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
   }, [messages.length, chat.live?.text])
 
@@ -87,6 +87,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
         {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
         {hasTranscript ? (
           <ol
+            ref={transcriptRef}
             aria-label="Conversation"
             aria-live="polite"
             className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-6"

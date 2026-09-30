@@ -1,0 +1,88 @@
+{
+  "feature": "chat-layout-polish",
+  "locator": "odd/tasks/chat-layout-polish.json",
+  "objective": "Polish chat with bubble-free assistant responses, Apple-inspired user surfaces, consistent spacing and pane-edge scrolling.",
+  "problem": "Assistant bubbles compete with background; native scrollbar hugs user bubbles; flex children can compress; streamed responses forcibly scroll readers to bottom.",
+  "authorized_scope": "User explicitly requested visual chat improvements. Never create or edit any .md file. Local implementation and work-unit commit only; no remote operation.",
+  "constraints": [
+    "Preserve custom background, existing welcome and send transition, composer controls, streaming/status/error behavior.",
+    "Do not activate stale ChatMessage/Markdown prototype or add dependencies.",
+    "User prohibition on .md overrides ODD Markdown persistence; record this feature as JSON."
+  ],
+  "tdd": {
+    "mode": "unconfigured; ordinary functional verification",
+    "source": "package.json has no test runner; existing chat-view-transition feature records unconfigured mode.",
+    "checks": [
+      "npm run typecheck",
+      "npm run lint",
+      "npm run build",
+      "npx prettier --check src/features/chat/chat-page.tsx src/index.css",
+      "git diff --check",
+      "Local isolated visual/runtime checks: long and short histories, scroll reading during streaming, composer visibility, empty/send transition, light/dark, narrow viewport, reduced motion."
+    ]
+  },
+  "review": {
+    "mode": "disabled/unmanaged",
+    "reason": "User requires explicit opt-in. CLI reports on decided by default with global/clone unset; no explicit opt-in in session. Do not invoke native review or change switch."
+  },
+  "delivery": {
+    "strategy": "ask-on-risk",
+    "forecast_authored_lines": 220,
+    "branch": "feat/opencode-adapter",
+    "base_commit": "cd85fdc",
+    "running_authored_lines": 0,
+    "pull_requests": []
+  },
+  "mirror": {
+    "status": "pending",
+    "topic": "odd/chat-layout-polish/tasks",
+    "reason": "Engram tools unavailable in current session. Local document retains recovery state."
+  },
+  "tasks": [
+    {
+      "id": "CHAT-01",
+      "done": false,
+      "route": "delegated direct",
+      "trigger_evidence": "Understanding spans ChatPage, styles, shell, transition hook and conversation model; implementation touches two non-trivial files. Narrow read-only mapping completed; bounded writer follows.",
+      "outcome": "Assistant text without bubble; softly translucent user bubbles; pane-edge discreet scrollbar; consistent nonshrinking rows and composer; follow stream only while near bottom; show latest on own send/navigation.",
+      "files": [
+        "src/features/chat/chat-page.tsx",
+        "src/index.css"
+      ],
+      "acceptance": [
+        "Agent responses have no rounded filled surface or border.",
+        "Messages stay readable over custom backgrounds in light and dark.",
+        "Scrollbar is at pane edge and does not overlap message column.",
+        "Rows/composer do not shrink or overlap for long history.",
+        "Streaming preserves reader position when scrolled up and follows when at bottom.",
+        "User message transition selectors and existing composer actions remain functional."
+      ],
+      "verification": {
+        "baseline": "npm run build and npm run lint passed before edits.",
+        "runtime": "Passed 18/18 normal and 18/18 reduced-motion assertions with actual AppShell, ChatPage, transition hook and CSS in isolated offline Chrome fixture.",
+        "checks": {
+          "npm run typecheck": "passed",
+          "npm run lint": "passed",
+          "npm run build": "passed",
+          "npx prettier --check src/features/chat/chat-page.tsx src/index.css": "passed",
+          "git diff --check": "passed"
+        },
+        "runtime_command": "node /tmp/talo-chat-polish-fixture/build.mjs; node /tmp/talo-chat-polish-cdp-check.mjs; node /tmp/talo-chat-polish-cdp-check.mjs --reduced",
+        "reports": [
+          "/tmp/talo-chat-polish-normal-results.json",
+          "/tmp/talo-chat-polish-reduced-results.json"
+        ],
+        "observed": "Scrollbar 6px, stable 6px gutters each side; exact column/composer alignment at desktop and narrow width. Reader position 240->240 during stream. Long history, latest follow, own send, navigation/loading, initial placeholder and ghost cleanup passed. Parent visually inspected warm wallpaper at 85% opacity in dark/light/narrow and long histories.",
+        "corrections": "Runtime found 6px narrow alignment difference; fixed by letting explicit WebKit scrollbar styling govern instead of standard thin/color. Initial harness escaping, opacity-percent and disabled-textarea focus assumptions corrected; final reports supersede scaffold failures.",
+        "pending": [
+          "Direct inspection in native Tauri/WebKit window unavailable. Provider/backend calls intentionally not exercised for this presentation-only change."
+        ]
+      },
+      "commit": null,
+      "rollback": "Revert chat-page.tsx and scoped chat CSS changes together; no data/backend changes.",
+      "rationale": "Keep the active renderer and transition DOM contract; no extra dependencies or stale Markdown renderer. Full pane viewport separates scrollbar from content; conditional follow keeps history reading stable. Scoped wallpaper scrim preserves readability without bubbles."
+    }
+  ],
+  "progress": "Outcome and ordinary functional/visual checks verified; work-unit commit pending.",
+  "next_step": "Commit verified CHAT-01 and record identity. Native Tauri appearance can be inspected when the app reloads."
+}

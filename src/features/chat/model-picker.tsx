@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, Cpu, Search, Star } from 'lucide-react'
+import { Check, ChevronDown, Search, Star } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import type { AgentModel, AgentModelChoice } from '@/services/agent'
 import type { ChatConversation } from './use-chat-conversation'
+import { OpenCodeMark } from './opencode-mark'
 
 function modelKey(model: AgentModel) {
   return `${model.providerId}/${model.modelId}`
@@ -83,19 +84,18 @@ export function ModelPicker({ chat }: { chat: ChatConversation }) {
           ref={trigger}
           type="button"
           variant="ghost"
-          aria-label={`Model: ${selected?.name ?? 'OpenCode default'}${chat.selectedModel?.variant ? `, variant ${chat.selectedModel.variant}` : ''}`}
-          disabled={chat.activity !== 'idle' || (!chat.info?.installed && !chat.info?.available)}
-          className="h-9 max-w-52 min-w-0 gap-1.5 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground"
+          aria-label={`Model: ${selected?.name ?? 'OpenCode default'}`}
+          disabled={
+            chat.activity !== 'idle' ||
+            Boolean(chat.deletingId) ||
+            (!chat.info?.installed && !chat.info?.available)
+          }
+          className="h-9 max-w-full min-w-0 shrink gap-1.5 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground sm:max-w-52"
         >
-          <Cpu className="size-4 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+          <OpenCodeMark className="size-4 shrink-0 text-foreground" />
           <span className="truncate font-medium text-foreground">
             {selected?.name ?? (chat.modelsLoading ? 'Loading models…' : 'OpenCode default')}
           </span>
-          {chat.selectedModel?.variant && (
-            <span className="hidden shrink-0 text-muted-foreground sm:inline">
-              {chat.selectedModel.variant}
-            </span>
-          )}
           <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
         </Button>
       </Popover.Trigger>
@@ -247,36 +247,6 @@ export function ModelPicker({ chat }: { chat: ChatConversation }) {
               </>
             )}
           </div>
-          {selected && selected.variants.length > 0 && (
-            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-border px-3 py-2 text-xs">
-              <label htmlFor="chat-model-variant" className="font-medium">
-                {selected.variants.every((value) =>
-                  ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value),
-                )
-                  ? 'Reasoning'
-                  : 'Variant'}
-              </label>
-              <select
-                id="chat-model-variant"
-                value={chat.selectedModel?.variant ?? ''}
-                onChange={(event) =>
-                  chat.selectModel({
-                    providerId: selected.providerId,
-                    modelId: selected.modelId,
-                    variant: event.target.value || null,
-                  })
-                }
-                className="max-w-40 rounded-md bg-transparent px-2 py-1 text-right text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">Default</option>
-                {selected.variants.map((variant) => (
-                  <option key={variant} value={variant}>
-                    {variant}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

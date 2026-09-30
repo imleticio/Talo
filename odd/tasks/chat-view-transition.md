@@ -87,6 +87,10 @@ Reuse React and the Web Animations API; add no animation dependency.
   recovery evidence. Use a new review slice for this coherent interaction,
   retaining the provisional feature-branch-chain strategy. The 400-line task
   heuristic is advisory; do not compress or omit checks to fit it.
+- T3 behavior commit `3571d0a` contains 368 authored changed lines (305 source,
+  63 recovery documentation); running count through it is 1,088. Review slice 4
+  holds `3571d0a` and its documentation evidence update, independently of T2.
+- Including T3 evidence: running authored count 1,100; review slice 4 is 380.
 - Each completed task closes with a Conventional Commit containing its code
   and verification documentation, while excluding pre-existing user files.
 - Rollback T2: revert its hook/ChatPage changes and Haze CSS refinement;
@@ -128,8 +132,8 @@ Reuse React and the Web Animations API; add no animation dependency.
       reduced motion/cancellation/unmount restore real content and clean copies;
       no dependencies, provider calls or service/persistence changes. Ordinary
       typecheck, lint, build, changed-file Prettier and local runtime checks.
-      Outcome and checks observed; commit identity to be recorded after the
-      work-unit commit. RDD: disabled/unmanaged.
+      Outcome and checks observed. Commit: `3571d0af862dd215d0bc290ff1f4692413f0b66d`
+      (`feat(chat): carry sent text into the conversation`). RDD: disabled/unmanaged.
 
 ## Progress, evidence, and next step
 
@@ -271,8 +275,8 @@ is restored cleanly. Initial virtual-time/frame-readiness attempts failed to
 observe the transfer; real-time checks resolved that environment limitation.
 An offscreen-destination assertion exposed a cleanup edge, which was fixed and
 verified. Desktop visual feel remains unverified; no real provider calls were
-made. T3 complete within these limits. Next: record the work-unit commit and
-assess the motion in the desktop window when available.
+made. T3 committed with code and verification evidence within these limits.
+Next: assess the motion in the desktop window when available.
 
 Engram mirror: observation `994`, topic `odd/chat-view-transition/tasks`,
 project `talo`, containing this full document and its repository-relative locator.

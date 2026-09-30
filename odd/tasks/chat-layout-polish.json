@@ -30,8 +30,17 @@
     "forecast_authored_lines": 220,
     "branch": "feat/opencode-adapter",
     "base_commit": "cd85fdc",
-    "running_authored_lines": 0,
-    "pull_requests": []
+    "running_authored_lines": 248,
+    "pull_requests": [],
+    "slices": [
+      {
+        "base": "cd85fdc",
+        "commits": [
+          "512e756254ffee3330b0c11e4c7d45ad4029a911"
+        ],
+        "status": "local work unit; no PR requested"
+      }
+    ]
   },
   "mirror": {
     "status": "pending",
@@ -41,7 +50,7 @@
   "tasks": [
     {
       "id": "CHAT-01",
-      "done": false,
+      "done": true,
       "route": "delegated direct",
       "trigger_evidence": "Understanding spans ChatPage, styles, shell, transition hook and conversation model; implementation touches two non-trivial files. Narrow read-only mapping completed; bounded writer follows.",
       "outcome": "Assistant text without bubble; softly translucent user bubbles; pane-edge discreet scrollbar; consistent nonshrinking rows and composer; follow stream only while near bottom; show latest on own send/navigation.",
@@ -78,11 +87,11 @@
           "Direct inspection in native Tauri/WebKit window unavailable. Provider/backend calls intentionally not exercised for this presentation-only change."
         ]
       },
-      "commit": null,
+      "commit": "512e756254ffee3330b0c11e4c7d45ad4029a911",
       "rollback": "Revert chat-page.tsx and scoped chat CSS changes together; no data/backend changes.",
       "rationale": "Keep the active renderer and transition DOM contract; no extra dependencies or stale Markdown renderer. Full pane viewport separates scrollbar from content; conditional follow keeps history reading stable. Scoped wallpaper scrim preserves readability without bubbles."
     }
   ],
-  "progress": "Outcome and ordinary functional/visual checks verified; work-unit commit pending.",
-  "next_step": "Commit verified CHAT-01 and record identity. Native Tauri appearance can be inspected when the app reloads."
+  "progress": "CHAT-01 complete and committed; checks pass. Engram mirror remains pending because unavailable.",
+  "next_step": "Reload the chat in native Tauri to inspect its WebKit appearance; no implementation work remains."
 }

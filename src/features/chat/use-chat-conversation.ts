@@ -15,6 +15,7 @@ import {
 import { toAppError, type AppError } from '@/services/errors'
 import {
   createConversation,
+  deleteConversation,
   listConversations,
   listMessages,
   type Conversation,
@@ -115,6 +116,9 @@ export function useChatConversation() {
   const [sessionMissing, setSessionMissing] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null)
   const [models, setModels] = useState<AgentModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
@@ -124,6 +128,7 @@ export function useChatConversation() {
   const activeIdRef = useRef<string | null>(null)
   const runIdRef = useRef<string | null>(null)
   const busyRef = useRef(false)
+  const deletingRef = useRef(false)
   const sessionReadyRef = useRef(false)
   const unboundIdRef = useRef<string | null>(null)
   const viewRef = useRef(0)
@@ -192,12 +197,13 @@ export function useChatConversation() {
 
   const openConversation = useCallback(
     async (id: string) => {
-      if (busyRef.current) return
+      if (busyRef.current || deletingRef.current) return
       if (activeIdRef.current === id) {
+        const view = viewRef.current
         try {
           await syncMessages(id)
         } catch (reason) {
-          setError(errorMessage(reason))
+          if (viewRef.current === view) setError(errorMessage(reason))
         }
         return
       }
@@ -218,6 +224,7 @@ export function useChatConversation() {
       } catch (reason) {
         if (viewRef.current === view) setError(errorMessage(reason))
       }
+      if (viewRef.current !== view) return
       try {
         await opencodeGetSession(id)
         if (viewRef.current === view) {
@@ -339,6 +346,7 @@ export function useChatConversation() {
   }, [listenerAttempt, syncMessages])
 
   async function refreshStatus() {
+    if (busyRef.current || deletingRef.current) return
     setConnection('checking')
     setError(null)
     try {
@@ -355,7 +363,7 @@ export function useChatConversation() {
 
   async function retrySession() {
     const id = activeIdRef.current
-    if (!id || busyRef.current) return
+    if (!id || busyRef.current || deletingRef.current) return
     const view = viewRef.current
     setConnection('connecting')
     setError(null)
@@ -380,9 +388,9 @@ export function useChatConversation() {
     }
   }
 
-  function newChat() {
-    if (busyRef.current) return
+  function clearConversationView() {
     ++viewRef.current
+    ++syncRef.current
     activeIdRef.current = null
     runIdRef.current = null
     sessionReadyRef.current = false
@@ -393,8 +401,34 @@ export function useChatConversation() {
     setLive(null)
     setSessionReady(false)
     setSessionMissing(false)
+    setLoadingHistory(false)
     setError(null)
     setDraft('')
+  }
+
+  function newChat() {
+    if (busyRef.current || deletingRef.current) return
+    clearConversationView()
+  }
+
+  async function removeConversation(id: string) {
+    if (busyRef.current || deletingRef.current) return false
+    deletingRef.current = true
+    setDeletingId(id)
+    setDeleteError(null)
+    setDeleteErrorId(id)
+    try {
+      await deleteConversation(id)
+      setConversations((current) => current.filter((conversation) => conversation.id !== id))
+      if (activeIdRef.current === id) clearConversationView()
+      return true
+    } catch (reason) {
+      setDeleteError(`Could not delete this chat. ${errorMessage(reason)}`)
+      return false
+    } finally {
+      deletingRef.current = false
+      setDeletingId(null)
+    }
   }
 
   async function send() {
@@ -402,6 +436,7 @@ export function useChatConversation() {
     if (
       !text ||
       busyRef.current ||
+      deletingRef.current ||
       !listenerReady ||
       loadingHistory ||
       sessionMissing ||
@@ -516,6 +551,9 @@ export function useChatConversation() {
     selectedModel,
     favoriteModels,
     draft,
+    deletingId,
+    deleteError,
+    deleteErrorId,
     error: isTauri() ? error : 'Open Talo on the desktop to use OpenCode.',
     setDraft,
     send,
@@ -530,6 +568,7 @@ export function useChatConversation() {
       ),
     openConversation,
     newChat,
+    removeConversation,
   }
 }
 

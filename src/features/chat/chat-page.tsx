@@ -63,6 +63,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
   const canSend =
     chat.listenerReady &&
     chat.activity === 'idle' &&
+    !chat.deletingId &&
     !chat.loadingHistory &&
     !chat.sessionMissing &&
     (chat.info?.installed || chat.info?.available)
@@ -184,13 +185,20 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                   onClick={() => {
                     void chat.retrySession()
                   }}
                 >
                   Retry
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={chat.newChat}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
+                  onClick={chat.newChat}
+                >
                   New chat
                 </Button>
               </div>
@@ -199,6 +207,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                 type="button"
                 variant="ghost"
                 size="sm"
+                disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                 onClick={() => {
                   void chat.refreshStatus()
                 }}
@@ -238,6 +247,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                   onClick={() => {
                     void chat.refreshStatus()
                   }}

@@ -1,11 +1,19 @@
-import { useState, type ReactNode } from 'react'
-import { FolderClosed, MessageSquare, PanelLeftClose, PanelLeftOpen, Settings2 } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
+import {
+  FolderClosed,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings2,
+  Trash2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
 import { hazeStyle } from '@/features/chat/haze-style'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import type { ChatBackground } from '@/features/settings/use-chat-background'
 import { isMacDesktop } from '@/lib/platform'
+import type { Conversation } from '@/services/persistence'
 import { navigation, type Section } from './navigation'
 
 type AppShellProps = {
@@ -26,8 +34,110 @@ function initialSidebarState() {
   }
 }
 
+function RecentConversation({
+  conversation,
+  chat,
+  onOpen,
+  onRemoved,
+}: {
+  conversation: Conversation
+  chat: ChatConversation
+  onOpen: () => void
+  onRemoved: () => void
+}) {
+  const [confirming, setConfirming] = useState(false)
+  const deleteButton = useRef<HTMLButtonElement>(null)
+  const blocked = chat.activity !== 'idle' || Boolean(chat.deletingId)
+  const deleting = chat.deletingId === conversation.id
+
+  function cancel() {
+    if (deleting) return
+    setConfirming(false)
+    deleteButton.current?.focus()
+  }
+
+  return (
+    <div className="group min-w-0">
+      <div
+        data-active={chat.activeId === conversation.id}
+        className="flex min-w-0 items-center rounded-lg data-[active=true]:bg-sidebar-accent"
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          title={conversation.title}
+          aria-current={chat.activeId === conversation.id ? 'page' : undefined}
+          disabled={blocked}
+          onClick={onOpen}
+          className="h-9 min-w-0 flex-1 justify-start truncate px-2 text-xs font-normal text-muted-foreground aria-[current=page]:text-sidebar-foreground"
+        >
+          <span className="truncate">{conversation.title}</span>
+        </Button>
+        <Button
+          ref={deleteButton}
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Delete chat: ${conversation.title}`}
+          title="Delete chat"
+          aria-expanded={confirming}
+          disabled={blocked}
+          onClick={() => setConfirming((current) => !current)}
+          className={`size-9 text-muted-foreground hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
+        >
+          <Trash2 className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
+        </Button>
+      </div>
+      {confirming && (
+        <div
+          role="group"
+          aria-label={`Delete chat: ${conversation.title}`}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              cancel()
+            }
+          }}
+          className="mb-1 rounded-lg border border-sidebar-border px-2 py-2 text-xs"
+        >
+          <p>Delete this chat and its local messages?</p>
+          {chat.deleteError && chat.deleteErrorId === conversation.id && (
+            <p role="alert" className="mt-2 text-destructive">
+              {chat.deleteError}
+            </p>
+          )}
+          <div className="mt-2 flex justify-end gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              autoFocus
+              disabled={blocked}
+              onClick={cancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="xs"
+              disabled={blocked}
+              onClick={async () => {
+                if (await chat.removeConversation(conversation.id)) onRemoved()
+              }}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AppShell({ section, onNavigate, background, chat, children }: AppShellProps) {
   const [expanded, setExpanded] = useState(initialSidebarState)
+  const newChatButton = useRef<HTMLButtonElement>(null)
   const imageUrl = section !== 'settings' ? background.imageUrl : null
 
   function toggleSidebar() {
@@ -131,13 +241,14 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                 Recent chats
               </h2>
               <Button
+                ref={newChatButton}
                 type="button"
                 variant="ghost"
                 onClick={() => {
                   chat.newChat()
                   onNavigate('chat')
                 }}
-                disabled={chat.activity !== 'idle'}
+                disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
                 className="mt-2 h-9 w-full justify-start px-2 text-xs text-muted-foreground"
               >
                 <MessageSquare className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
@@ -151,21 +262,18 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                     .slice()
                     .reverse()
                     .map((conversation) => (
-                      <Button
+                      <RecentConversation
                         key={conversation.id}
-                        type="button"
-                        variant="ghost"
-                        title={conversation.title}
-                        aria-current={chat.activeId === conversation.id ? 'page' : undefined}
-                        disabled={chat.activity !== 'idle'}
-                        onClick={() => {
+                        conversation={conversation}
+                        chat={chat}
+                        onOpen={() => {
                           void chat.openConversation(conversation.id)
                           onNavigate('chat')
                         }}
-                        className="h-9 w-full justify-start truncate px-2 text-xs font-normal text-muted-foreground aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-foreground"
-                      >
-                        <span className="truncate">{conversation.title}</span>
-                      </Button>
+                        onRemoved={() => {
+                          requestAnimationFrame(() => newChatButton.current?.focus())
+                        }}
+                      />
                     ))}
                 </div>
               )}

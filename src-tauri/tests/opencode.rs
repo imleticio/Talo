@@ -14,7 +14,7 @@ use talo_lib::database::Database;
 use talo_lib::models::MessageStatus;
 use talo_lib::services::{agent::AgentService, persistence};
 use tempfile::tempdir;
-use tokio::sync::broadcast;
+use tokio::sync::{Mutex, broadcast};
 
 struct Mock {
     events: broadcast::Sender<String>,
@@ -25,6 +25,7 @@ struct Mock {
     silent_abort: AtomicBool,
     malformed: AtomicBool,
     expect_model: AtomicBool,
+    response_model: Mutex<Value>,
 }
 
 async fn health() -> Json<Value> {
@@ -71,10 +72,18 @@ async fn prompt(State(state): State<Arc<Mock>>, Json(body): Json<Value>) -> Stat
     } else {
         assert!(body.get("model").is_none());
     }
+    let model = state.response_model.lock().await.clone();
+    let mut info = json!({"id":"msg_mock","sessionID":"ses_mock","role":"assistant"});
+    if let Some(fields) = model.as_object() {
+        info.as_object_mut().unwrap().extend(fields.clone());
+    }
     let events = [
-        json!({"type":"message.updated","properties":{"info":{"id":"msg_mock","sessionID":"ses_mock","role":"assistant"}}}),
+        json!({"type":"message.updated","properties":{"info":info}}),
         json!({"type":"message.part.delta","properties":{"sessionID":"ses_mock","messageID":"msg_mock","partID":"part_1","field":"text","delta":"Hello"}}),
         json!({"type":"message.part.updated","properties":{"part":{"id":"part_1","sessionID":"ses_mock","messageID":"msg_mock","type":"text","text":"Hello world"}}}),
+        json!({"type":"message.updated","properties":{"info":info}}),
+        json!({"type":"message.updated","properties":{"info":{"id":"unrelated","sessionID":"other_session","role":"assistant","providerID":"wrong","modelID":"wrong"}}}),
+        json!({"type":"message.updated","properties":{"info":{"id":"user","sessionID":"ses_mock","role":"user","providerID":"wrong","modelID":"wrong"}}}),
     ];
     for event in events {
         let _ = state.events.send(event.to_string());
@@ -119,6 +128,7 @@ async fn server() -> (String, Arc<Mock>, tokio::task::JoinHandle<()>) {
         silent_abort: AtomicBool::new(false),
         malformed: AtomicBool::new(false),
         expect_model: AtomicBool::new(false),
+        response_model: Mutex::new(json!({"providerID":"opencode","modelID":"free-model"})),
     });
     let router = Router::new()
         .route("/global/health", get(health))
@@ -329,6 +339,8 @@ async fn lists_connected_models_and_sends_selected_variant() {
     let dir = tempdir().unwrap();
     let (url, mock, server) = server().await;
     mock.expect_model.store(true, Ordering::SeqCst);
+    *mock.response_model.lock().await =
+        json!({"providerID":"resolved-provider","modelID":"actual-model"});
     let db = Database::initialize(dir.path()).unwrap();
     let conversation = persistence::create_conversation(&db, None, "Models".into()).unwrap();
     let service = AgentService::new(
@@ -358,6 +370,9 @@ async fn lists_connected_models_and_sends_selected_variant() {
         .await
         .unwrap();
     assert_eq!(answer.content, "Hello world");
+    let saved = persistence::get_conversation(&db, conversation.id.clone()).unwrap();
+    assert_eq!(saved.last_provider_id.as_deref(), Some("resolved-provider"));
+    assert_eq!(saved.last_model_id.as_deref(), Some("actual-model"));
     let invalid = AgentModelChoice {
         provider_id: "unconnected".into(),
         model_id: "other".into(),
@@ -399,6 +414,70 @@ async fn lists_connected_models_and_sends_selected_variant() {
             .unwrap()
             .len(),
         2
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn saves_actual_default_and_changed_response_model_without_guessing_missing_metadata() {
+    let dir = tempdir().unwrap();
+    let (url, mock, server) = server().await;
+    let db = Database::initialize(dir.path()).unwrap();
+    let conversation = persistence::create_conversation(&db, None, "Models".into()).unwrap();
+    let other = persistence::create_conversation(&db, None, "Other".into()).unwrap();
+    db.set_conversation_model(&other.id, Some(&("existing".into(), "existing".into())))
+        .unwrap();
+    let connection = rusqlite::Connection::open(dir.path().join("talo.db")).unwrap();
+    connection
+        .execute_batch(
+            "CREATE TABLE model_writes (id INTEGER);
+         CREATE TRIGGER count_model_writes AFTER UPDATE OF last_model_id ON conversations
+         BEGIN INSERT INTO model_writes VALUES (1); END;",
+        )
+        .unwrap();
+    let service = AgentService::new(
+        db.clone(),
+        Arc::new(OpenCodeAdapter::with_endpoint(dir.path().to_path_buf(), url).unwrap()),
+    );
+    service
+        .create_session(conversation.id.clone())
+        .await
+        .unwrap();
+    for (metadata, expected) in [
+        (
+            json!({"providerID":"opencode","modelID":"free-model"}),
+            Some(("opencode", "free-model")),
+        ),
+        (
+            json!({"providerID":"resolved-provider","modelID":"next-model"}),
+            Some(("resolved-provider", "next-model")),
+        ),
+        (Value::Null, None),
+        (json!({"providerID":"incomplete"}), None),
+    ] {
+        *mock.response_model.lock().await = metadata;
+        service
+            .send(conversation.id.clone(), "hello".into(), None, |_| {})
+            .await
+            .unwrap();
+        let saved = persistence::get_conversation(&db, conversation.id.clone()).unwrap();
+        assert_eq!(
+            saved.last_provider_id.as_deref(),
+            expected.map(|value| value.0)
+        );
+        assert_eq!(
+            saved.last_model_id.as_deref(),
+            expected.map(|value| value.1)
+        );
+        let untouched = persistence::get_conversation(&db, other.id.clone()).unwrap();
+        assert_eq!(untouched.last_model_id.as_deref(), Some("existing"));
+    }
+    let writes: u32 = connection
+        .query_row("SELECT COUNT(*) FROM model_writes", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(
+        writes, 4,
+        "duplicate stream updates must not rewrite metadata"
     );
     server.abort();
 }

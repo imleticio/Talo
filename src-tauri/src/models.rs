@@ -18,6 +18,8 @@ pub struct Conversation {
     pub title: String,
     pub created_at: String,
     pub updated_at: String,
+    pub last_provider_id: Option<String>,
+    pub last_model_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]

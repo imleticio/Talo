@@ -209,6 +209,11 @@ impl AgentAdapter for OpenCodeAdapter {
 fn map_event(event: Event) -> Option<AgentUpdate> {
     let session_id = event.session_id()?.to_owned();
     let message_id = event.message_id().map(str::to_owned);
+    let response_model = event.properties.get("info").and_then(|info| {
+        let provider = info.get("providerID")?.as_str()?.trim();
+        let model = info.get("modelID")?.as_str()?.trim();
+        (!provider.is_empty() && !model.is_empty()).then(|| (provider.to_owned(), model.to_owned()))
+    });
     let part_id = event
         .properties
         .get("part")
@@ -250,6 +255,7 @@ fn map_event(event: Event) -> Option<AgentUpdate> {
         message_id,
         part_id,
         snapshot,
+        response_model,
         event,
     })
 }

@@ -19,28 +19,50 @@ import {
   listConversations,
   listMessages,
   type Conversation,
-  type Message,
 } from '@/services/persistence'
+import {
+  chatWorkspacePreference,
+  closeChatTab,
+  createChatWorkspace,
+  openChatTab,
+  restoreChatWorkspace,
+  updateChatTab,
+  type ChatTab,
+  type ChatWorkspace,
+} from './chat-tabs-state'
 
 const ACTIVE_CHAT_KEY = 'talo.active-chat-id'
+const CHAT_TABS_KEY = 'talo.chat-tabs'
 const MODEL_KEY = 'talo.opencode-model'
 const FAVORITES_KEY = 'talo.opencode-favorite-models'
 
 type Connection = 'checking' | 'not_installed' | 'stopped' | 'connecting' | 'ready' | 'error'
-type Activity = 'idle' | 'connecting' | 'sending' | 'cancelling'
-type LiveReply = { messageId: string; text: string; tool: string | null }
+type TabRuntime = {
+  busy: boolean
+  runId: string | null
+  unboundId: string | null
+  sync: number
+  history: number
+}
 
-function savedChatId() {
+function savedWorkspace(conversations: Conversation[]) {
   try {
-    return localStorage.getItem(ACTIVE_CHAT_KEY)
+    return restoreChatWorkspace(
+      conversations,
+      JSON.parse(localStorage.getItem(CHAT_TABS_KEY) ?? 'null'),
+      localStorage.getItem(ACTIVE_CHAT_KEY),
+    )
   } catch {
-    return null
+    return createChatWorkspace()
   }
 }
 
-function rememberChat(id: string | null) {
+function rememberWorkspace(workspace: ChatWorkspace) {
   try {
-    if (id) localStorage.setItem(ACTIVE_CHAT_KEY, id)
+    const preference = chatWorkspacePreference(workspace)
+    localStorage.setItem(CHAT_TABS_KEY, JSON.stringify(preference))
+    if (preference.activeConversationId)
+      localStorage.setItem(ACTIVE_CHAT_KEY, preference.activeConversationId)
     else localStorage.removeItem(ACTIVE_CHAT_KEY)
   } catch {
     // The conversation remains accessible from SQLite even if this preference fails.
@@ -105,17 +127,10 @@ export function useChatConversation() {
   const [connection, setConnection] = useState<Connection>('checking')
   const [info, setInfo] = useState<AgentInfo | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [live, setLive] = useState<LiveReply | null>(null)
-  const [activity, setActivity] = useState<Activity>('idle')
-  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [workspace, setWorkspace] = useState(createChatWorkspace)
   const [listenerReady, setListenerReady] = useState(false)
   const [listenerAttempt, setListenerAttempt] = useState(0)
-  const [sessionReady, setSessionReady] = useState(false)
-  const [sessionMissing, setSessionMissing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null)
@@ -125,15 +140,44 @@ export function useChatConversation() {
   const [selectedModel, setSelectedModel] = useState<AgentModelChoice | null>(savedModel)
   const [favoriteModels, setFavoriteModels] = useState<string[]>(savedFavorites)
 
-  const activeIdRef = useRef<string | null>(null)
-  const runIdRef = useRef<string | null>(null)
-  const busyRef = useRef(false)
+  const workspaceRef = useRef(workspace)
+  const initialWorkspace = useRef(workspace)
+  const runtimes = useRef(new Map<string, TabRuntime>())
   const deletingRef = useRef(false)
-  const sessionReadyRef = useRef(false)
-  const unboundIdRef = useRef<string | null>(null)
-  const viewRef = useRef(0)
-  const syncRef = useRef(0)
   const modelsRequest = useRef(0)
+  const conversationsRequest = useRef(0)
+
+  const changeWorkspace = useCallback((update: (current: ChatWorkspace) => ChatWorkspace) => {
+    const previous = workspaceRef.current
+    const next = update(previous)
+    if (next === previous) return
+    workspaceRef.current = next
+    setWorkspace(next)
+    if (
+      JSON.stringify(chatWorkspacePreference(previous)) !==
+      JSON.stringify(chatWorkspacePreference(next))
+    )
+      rememberWorkspace(next)
+  }, [])
+
+  const patchTab = useCallback(
+    (id: string, update: Partial<ChatTab> | ((tab: ChatTab) => Partial<ChatTab>)) => {
+      changeWorkspace((current) => updateChatTab(current, id, update))
+    },
+    [changeWorkspace],
+  )
+
+  const runtimeFor = useCallback((tabId: string) => {
+    let runtime = runtimes.current.get(tabId)
+    if (!runtime) {
+      runtime = { busy: false, runId: null, unboundId: null, sync: 0, history: 0 }
+      runtimes.current.set(tabId, runtime)
+    }
+    return runtime
+  }, [])
+
+  const activeTab = workspace.tabs.find((tab) => tab.id === workspace.activeTabId)!
+  const activeId = activeTab.conversationId
 
   const loadModels = useCallback(async () => {
     const request = ++modelsRequest.current
@@ -186,66 +230,72 @@ export function useChatConversation() {
     }
   }, [favoriteModels])
 
-  const syncMessages = useCallback(async (id: string, view = viewRef.current) => {
-    const request = ++syncRef.current
-    const saved = await listMessages(id)
-    if (activeIdRef.current === id && viewRef.current === view && syncRef.current === request) {
-      setMessages(saved)
-    }
-    return saved
+  const syncMessages = useCallback(
+    async (tabId: string, conversationId: string) => {
+      const runtime = runtimeFor(tabId)
+      const request = ++runtime.sync
+      const saved = await listMessages(conversationId)
+      if (runtime.sync === request) patchTab(tabId, { messages: saved })
+      return saved
+    },
+    [patchTab, runtimeFor],
+  )
+
+  const syncConversations = useCallback(async () => {
+    const request = ++conversationsRequest.current
+    const saved = await listConversations()
+    if (conversationsRequest.current === request) setConversations(saved)
   }, [])
 
-  const openConversation = useCallback(
-    async (id: string) => {
-      if (busyRef.current || deletingRef.current) return
-      if (activeIdRef.current === id) {
-        const view = viewRef.current
-        try {
-          await syncMessages(id)
-        } catch (reason) {
-          if (viewRef.current === view) setError(errorMessage(reason))
-        }
-        return
-      }
-      const view = ++viewRef.current
-      activeIdRef.current = id
-      rememberChat(id)
-      setActiveId(id)
-      setMessages([])
-      setLive(null)
-      setError(null)
-      setDraft('')
-      setSessionReady(false)
-      setSessionMissing(false)
-      sessionReadyRef.current = false
-      setLoadingHistory(true)
+  const loadTab = useCallback(
+    async (tabId: string) => {
+      const tab = workspaceRef.current.tabs.find((item) => item.id === tabId)
+      if (!tab?.conversationId || tab.loadingHistory || runtimeFor(tabId).busy) return
+      const id = tab.conversationId
+      const runtime = runtimeFor(tabId)
+      const request = ++runtime.history
+      patchTab(tabId, { loadingHistory: true, error: null })
       try {
-        await syncMessages(id, view)
-      } catch (reason) {
-        if (viewRef.current === view) setError(errorMessage(reason))
-      }
-      if (viewRef.current !== view) return
-      try {
+        await syncMessages(tabId, id)
         await opencodeGetSession(id)
-        if (viewRef.current === view) {
-          sessionReadyRef.current = true
-          setSessionReady(true)
-          setSessionMissing(false)
+        if (runtime.history === request) {
+          patchTab(tabId, { sessionReady: true, sessionMissing: false })
           setConnection('ready')
         }
       } catch (reason) {
-        if (viewRef.current === view) {
+        if (runtime.history === request) {
           const failure = toAppError(reason)
-          setSessionMissing(failure.kind === 'not_found' || failure.kind === 'session_not_found')
-          setError(errorMessage(failure))
-          if (failure.kind !== 'not_found') setConnection('error')
+          patchTab(tabId, {
+            sessionReady: false,
+            sessionMissing: failure.kind === 'not_found' || failure.kind === 'session_not_found',
+            error: errorMessage(failure),
+          })
         }
       } finally {
-        if (viewRef.current === view) setLoadingHistory(false)
+        if (runtime.history === request)
+          patchTab(tabId, { loadingHistory: false, historyLoaded: true })
       }
     },
-    [syncMessages],
+    [patchTab, runtimeFor, syncMessages],
   )
+
+  const selectTab = useCallback(
+    (tabId: string) => {
+      const tab = workspaceRef.current.tabs.find((item) => item.id === tabId)
+      if (!tab) return
+      changeWorkspace((current) => ({ ...current, activeTabId: tabId }))
+      if (!tab.historyLoaded) void loadTab(tabId)
+    },
+    [changeWorkspace, loadTab],
+  )
+
+  function openConversation(id: string) {
+    if (deletingRef.current) return
+    const conversation = conversations.find((item) => item.id === id)
+    if (!conversation) return
+    changeWorkspace((current) => openChatTab(current, conversation))
+    selectTab(workspaceRef.current.activeTabId)
+  }
 
   useEffect(() => {
     if (!isTauri()) {
@@ -256,33 +306,33 @@ export function useChatConversation() {
       .then((status) => {
         if (!mounted) return
         setInfo(status)
-        if (!sessionReadyRef.current) {
-          setConnection(status.available ? 'ready' : status.installed ? 'stopped' : 'not_installed')
-        }
+        setConnection(status.available ? 'ready' : status.installed ? 'stopped' : 'not_installed')
         if (status.installed || status.available) void loadModels()
       })
       .catch((reason) => {
         if (mounted) {
           setConnection('error')
-          setError(errorMessage(reason))
+          setConnectionError(errorMessage(reason))
         }
       })
+    const request = ++conversationsRequest.current
     void listConversations()
       .then((saved) => {
-        if (!mounted) return
+        if (!mounted || conversationsRequest.current !== request) return
         setConversations(saved)
-        const previous = savedChatId()
-        if (previous && saved.some((conversation) => conversation.id === previous)) {
-          void openConversation(previous)
+        if (workspaceRef.current === initialWorkspace.current) {
+          const restored = savedWorkspace(saved)
+          changeWorkspace(() => restored)
+          void loadTab(restored.activeTabId)
         }
       })
       .catch((reason) => {
-        if (mounted) setError(errorMessage(reason))
+        if (mounted) setConnectionError(errorMessage(reason))
       })
     return () => {
       mounted = false
     }
-  }, [loadModels, openConversation])
+  }, [changeWorkspace, loadModels, loadTab])
 
   useEffect(() => {
     if (!isTauri()) return
@@ -290,39 +340,49 @@ export function useChatConversation() {
     let dispose: (() => void) | undefined
     void onAgentUpdate((update) => {
       if (!mounted) return
-      if (update.conversationId !== activeIdRef.current) return
+      const tab = workspaceRef.current.tabs.find(
+        (item) => item.conversationId === update.conversationId,
+      )
+      if (!tab) return
+      const runtime = runtimeFor(tab.id)
       if (update.event.type === 'started') {
-        if (!busyRef.current) return
-        runIdRef.current = update.messageId
-        setLive({ messageId: update.messageId, text: '', tool: null })
-        void syncMessages(update.conversationId).catch((reason) => setError(errorMessage(reason)))
+        if (!runtime.busy) return
+        runtime.runId = update.messageId
+        patchTab(tab.id, { live: { messageId: update.messageId, text: '', tool: null } })
+        void syncMessages(tab.id, update.conversationId).catch((reason) =>
+          patchTab(tab.id, { error: errorMessage(reason) }),
+        )
         return
       }
-      if (update.messageId !== runIdRef.current) return
+      if (update.messageId !== runtime.runId) return
       switch (update.event.type) {
         case 'delta': {
           const text = update.event.text
-          setLive((current) =>
-            current?.messageId === update.messageId
-              ? { ...current, text: current.text + text }
-              : current,
-          )
+          patchTab(tab.id, (current) => ({
+            live:
+              current.live?.messageId === update.messageId
+                ? { ...current.live, text: current.live.text + text }
+                : current.live,
+          }))
           break
         }
         case 'tool': {
           const tool = `${update.event.name} · ${update.event.state}`
-          setLive((current) =>
-            current?.messageId === update.messageId ? { ...current, tool } : current,
-          )
+          patchTab(tab.id, (current) => ({
+            live:
+              current.live?.messageId === update.messageId
+                ? { ...current.live, tool }
+                : current.live,
+          }))
           break
         }
         case 'error':
-          setError(update.event.message)
+          patchTab(tab.id, { error: update.event.message })
           break
         case 'completed':
           break
         case 'cancelled':
-          setError(null)
+          patchTab(tab.id, { error: null })
           break
       }
     })
@@ -335,7 +395,7 @@ export function useChatConversation() {
       .catch((reason) => {
         if (mounted) {
           setConnection('error')
-          setError(errorMessage(reason))
+          setConnectionError(errorMessage(reason))
         }
       })
     return () => {
@@ -343,12 +403,13 @@ export function useChatConversation() {
       dispose?.()
       setListenerReady(false)
     }
-  }, [listenerAttempt, syncMessages])
+  }, [listenerAttempt, patchTab, runtimeFor, syncMessages])
 
   async function refreshStatus() {
-    if (busyRef.current || deletingRef.current) return
+    if (deletingRef.current) return
+    patchTab(workspaceRef.current.activeTabId, { error: null })
     setConnection('checking')
-    setError(null)
+    setConnectionError(null)
     try {
       const status = await opencodeStatus()
       setInfo(status)
@@ -357,70 +418,37 @@ export function useChatConversation() {
       if (status.installed || status.available) await loadModels()
     } catch (reason) {
       setConnection('error')
-      setError(errorMessage(reason))
+      setConnectionError(errorMessage(reason))
     }
   }
 
   async function retrySession() {
-    const id = activeIdRef.current
-    if (!id || busyRef.current || deletingRef.current) return
-    const view = viewRef.current
-    setConnection('connecting')
-    setError(null)
-    setLoadingHistory(true)
-    try {
-      await opencodeGetSession(id)
-      if (viewRef.current === view && activeIdRef.current === id) {
-        sessionReadyRef.current = true
-        setSessionReady(true)
-        setSessionMissing(false)
-        setConnection('ready')
-      }
-    } catch (reason) {
-      if (viewRef.current === view && activeIdRef.current === id) {
-        const failure = toAppError(reason)
-        setSessionMissing(failure.kind === 'not_found' || failure.kind === 'session_not_found')
-        setConnection('error')
-        setError(errorMessage(failure))
-      }
-    } finally {
-      if (viewRef.current === view && activeIdRef.current === id) setLoadingHistory(false)
-    }
-  }
-
-  function clearConversationView() {
-    ++viewRef.current
-    ++syncRef.current
-    activeIdRef.current = null
-    runIdRef.current = null
-    sessionReadyRef.current = false
-    unboundIdRef.current = null
-    rememberChat(null)
-    setActiveId(null)
-    setMessages([])
-    setLive(null)
-    setSessionReady(false)
-    setSessionMissing(false)
-    setLoadingHistory(false)
-    setError(null)
-    setDraft('')
+    if (deletingRef.current) return
+    await loadTab(workspaceRef.current.activeTabId)
   }
 
   function newChat() {
-    if (busyRef.current || deletingRef.current) return
-    clearConversationView()
+    if (deletingRef.current) return
+    changeWorkspace((current) => openChatTab(current))
+  }
+
+  function closeTab(tabId: string) {
+    if (deletingRef.current || runtimeFor(tabId).busy) return
+    dismissTab(tabId)
   }
 
   async function removeConversation(id: string) {
-    if (busyRef.current || deletingRef.current) return false
+    const tab = workspaceRef.current.tabs.find((item) => item.conversationId === id)
+    if (deletingRef.current || (tab && runtimeFor(tab.id).busy)) return false
     deletingRef.current = true
     setDeletingId(id)
     setDeleteError(null)
     setDeleteErrorId(id)
     try {
       await deleteConversation(id)
+      ++conversationsRequest.current
       setConversations((current) => current.filter((conversation) => conversation.id !== id))
-      if (activeIdRef.current === id) clearConversationView()
+      if (tab) dismissTab(tab.id)
       return true
     } catch (reason) {
       setDeleteError(`Could not delete this chat. ${errorMessage(reason)}`)
@@ -431,70 +459,76 @@ export function useChatConversation() {
     }
   }
 
+  function dismissTab(tabId: string) {
+    changeWorkspace((current) => closeChatTab(current, tabId))
+    runtimes.current.delete(tabId)
+    selectTab(workspaceRef.current.activeTabId)
+  }
+
   async function send() {
-    const text = draft.trim()
+    const tab = workspaceRef.current.tabs.find(
+      (item) => item.id === workspaceRef.current.activeTabId,
+    )!
+    const runtime = runtimeFor(tab.id)
+    const text = tab.draft.trim()
     if (
       !text ||
-      busyRef.current ||
+      runtime.busy ||
       deletingRef.current ||
       !listenerReady ||
-      loadingHistory ||
-      sessionMissing ||
+      tab.loadingHistory ||
+      tab.sessionMissing ||
       (!info?.installed && !info?.available)
     )
       return
-    busyRef.current = true
-    setActivity('connecting')
-    setError(null)
-    let id = activeIdRef.current
+    runtime.busy = true
+    patchTab(tab.id, { activity: 'connecting', error: null })
+    let id = tab.conversationId
     let submitted = false
     let restoreDraft = false
-    const previousSequence = messages.at(-1)?.sequence ?? 0
+    const previousSequence = tab.messages.at(-1)?.sequence ?? 0
     try {
       if (!id) {
         const conversation = await createConversation(conversationTitle(text))
+        ++conversationsRequest.current
         id = conversation.id
-        activeIdRef.current = id
-        unboundIdRef.current = id
-        rememberChat(id)
-        setActiveId(id)
+        runtime.unboundId = id
+        patchTab(tab.id, { conversationId: id, title: conversation.title })
         setConversations((previous) => [...previous, conversation])
       }
-      if (!sessionReadyRef.current) {
+      if (!tab.sessionReady) {
         try {
           await opencodeGetSession(id)
         } catch (reason) {
           const failure = toAppError(reason)
-          if (unboundIdRef.current !== id || failure.kind !== 'not_found') throw failure
+          if (runtime.unboundId !== id || failure.kind !== 'not_found') throw failure
           await opencodeCreateSession(id)
-          unboundIdRef.current = null
+          runtime.unboundId = null
         }
-        sessionReadyRef.current = true
-        setSessionReady(true)
-        setSessionMissing(false)
+        patchTab(tab.id, { sessionReady: true, sessionMissing: false })
       }
       setConnection('ready')
-      setActivity('sending')
-      runIdRef.current = null
-      setDraft('')
+      patchTab(tab.id, { activity: 'sending', draft: '' })
+      runtime.runId = null
       submitted = true
       await opencodeSendMessage(id, text, selectedModel)
     } catch (reason) {
       const failure: AppError = toAppError(reason)
       if (failure.kind !== 'cancelled') {
-        setError(errorMessage(failure))
-        setConnection(failure.kind === 'not_installed' ? 'not_installed' : 'error')
+        patchTab(tab.id, { error: errorMessage(failure) })
+        if (failure.kind === 'not_installed') setConnection('not_installed')
         if (failure.kind === 'session_not_found' || failure.kind === 'not_found') {
-          sessionReadyRef.current = false
-          setSessionReady(false)
-          setSessionMissing(unboundIdRef.current !== id)
+          patchTab(tab.id, {
+            sessionReady: false,
+            sessionMissing: runtime.unboundId !== id,
+          })
         }
       }
-      restoreDraft = !submitted || !runIdRef.current
+      restoreDraft = !submitted || !runtime.runId
     } finally {
       if (id) {
         try {
-          const saved = await syncMessages(id)
+          const saved = await syncMessages(tab.id, id)
           if (
             restoreDraft &&
             (!submitted ||
@@ -505,31 +539,34 @@ export function useChatConversation() {
                   message.content === text,
               ))
           )
-            setDraft(text)
-          setConversations(await listConversations())
+            patchTab(tab.id, { draft: text })
+          await syncConversations()
         } catch (reason) {
-          if (restoreDraft && !submitted) setDraft(text)
-          setError(errorMessage(reason))
+          if (restoreDraft && !submitted) patchTab(tab.id, { draft: text })
+          patchTab(tab.id, { error: errorMessage(reason) })
         }
       } else if (restoreDraft) {
-        setDraft(text)
+        patchTab(tab.id, { draft: text })
       }
-      setLive(null)
-      runIdRef.current = null
-      busyRef.current = false
-      setActivity('idle')
+      runtime.runId = null
+      runtime.busy = false
+      patchTab(tab.id, { live: null, activity: 'idle' })
     }
   }
 
   async function stop() {
-    const id = activeIdRef.current
-    if (!id || !busyRef.current || !runIdRef.current || activity === 'cancelling') return
-    setActivity('cancelling')
+    const tab = workspaceRef.current.tabs.find(
+      (item) => item.id === workspaceRef.current.activeTabId,
+    )!
+    const runtime = runtimeFor(tab.id)
+    const id = tab.conversationId
+    if (!id || !runtime.busy || !runtime.runId || tab.activity === 'cancelling') return
+    patchTab(tab.id, { activity: 'cancelling' })
     try {
       await opencodeCancel(id)
     } catch (reason) {
       const failure = toAppError(reason)
-      if (failure.kind !== 'not_found') setError(errorMessage(failure))
+      if (failure.kind !== 'not_found') patchTab(tab.id, { error: errorMessage(failure) })
     }
   }
 
@@ -537,25 +574,29 @@ export function useChatConversation() {
     connection,
     info,
     conversations,
+    tabs: workspace.tabs,
+    activeTabId: workspace.activeTabId,
     activeId,
-    messages,
-    live,
-    activity,
-    loadingHistory,
+    messages: activeTab.messages,
+    live: activeTab.live,
+    activity: activeTab.activity,
+    loadingHistory: activeTab.loadingHistory,
     listenerReady,
-    sessionReady,
-    sessionMissing,
+    sessionReady: activeTab.sessionReady,
+    sessionMissing: activeTab.sessionMissing,
     models,
     modelsLoading,
     modelsError,
     selectedModel,
     favoriteModels,
-    draft,
+    draft: activeTab.draft,
     deletingId,
     deleteError,
     deleteErrorId,
-    error: isTauri() ? error : 'Open Talo on the desktop to use OpenCode.',
-    setDraft,
+    error: isTauri()
+      ? (activeTab.error ?? connectionError)
+      : 'Open Talo on the desktop to use OpenCode.',
+    setDraft: (draft: string) => patchTab(activeTab.id, { draft }),
     send,
     stop,
     refreshStatus,
@@ -567,6 +608,8 @@ export function useChatConversation() {
         current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
       ),
     openConversation,
+    selectTab,
+    closeTab,
     newChat,
     removeConversation,
   }

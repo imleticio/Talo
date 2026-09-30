@@ -17,7 +17,7 @@ function App() {
 
   return (
     <AppShell section={section} onNavigate={setSection} background={chatBackground} chat={chat}>
-      {section === 'chat' && <ChatPage chat={chat} />}
+      {section === 'chat' && <ChatPage key={chat.activeTabId} chat={chat} />}
       {section === 'agents' && <AgentsPage />}
       {section === 'projects' && <ProjectsPage />}
       {section === 'settings' && (

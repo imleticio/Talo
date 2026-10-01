@@ -256,7 +256,7 @@ export function TerminalPanel({
         <div
           id="talo-terminal-content"
           style={{ height, '--terminal-travel': `${height + 8}px` } as CSSProperties}
-          className="talo-terminal-surface overflow-hidden rounded-b-2xl"
+          className="talo-terminal-surface overflow-hidden rounded-3xl"
         >
           <div className="talo-terminal-header flex h-8 items-center gap-2 px-4 text-xs text-slate-300/80">
             <TerminalSquare size={12} aria-hidden="true" />

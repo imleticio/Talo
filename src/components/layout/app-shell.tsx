@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { BranchIcon } from '@/components/ui/branch-icon'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
 import { ChatTabs } from '@/features/chat/chat-tabs'
+import { beginChatDrag } from '@/features/chat/chat-drag'
+import { visibleChatPanels } from '@/features/chat/chat-panels-state'
 import { ChatAgentMark } from '@/features/chat/chat-agent-mark'
 import { hazeStyle } from '@/features/chat/haze-style'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
@@ -86,6 +88,10 @@ function RecentConversation({
           aria-current={chat.activeId === conversation.id ? 'page' : undefined}
           disabled={blocked}
           onClick={onOpen}
+          onPointerDown={(event) => {
+            if (!blocked) beginChatDrag(event, { conversationId: conversation.id })
+          }}
+          onDragStart={(event) => event.preventDefault()}
           className="talo-chat-card-open h-auto min-h-9 w-full min-w-0 justify-start rounded-lg border-0 bg-transparent py-2 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
         >
           <span id={modelDescriptionId} data-chat-model className="sr-only">
@@ -179,6 +185,14 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
   const previousWorkspaceBounds = useRef<DOMRect | null>(null)
   const sidebarAnimation = useRef<Animation | null>(null)
   const imageUrl = section !== 'settings' ? background.imageUrl : null
+  const visiblePanels = visibleChatPanels(
+    chat.panelTabIds,
+    chat.tabs.map((tab) => tab.id),
+    chat.activeTabId,
+  )
+  const sessionEmpty = chat.tabs
+    .filter((tab) => visiblePanels.includes(tab.id))
+    .every((tab) => !tab.live && tab.messages.length === 0)
 
   useLayoutEffect(() => {
     const element = workspaceColumn.current
@@ -419,7 +433,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
             className="talo-body haze-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
             data-has-haze={Boolean(imageUrl)}
             data-section={section}
-            data-session-empty={!chat.live && chat.messages.length === 0}
+            data-session-empty={sessionEmpty}
             data-background-scope={background.scope}
           >
             {imageUrl ? (
@@ -432,9 +446,6 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
             ) : null}
             <div className="repository-background" aria-hidden="true" />
             <main
-              id={section === 'chat' ? `chat-panel-${chat.activeTabId}` : undefined}
-              role={section === 'chat' ? 'tabpanel' : undefined}
-              aria-labelledby={section === 'chat' ? `chat-tab-${chat.activeTabId}` : undefined}
               tabIndex={section === 'chat' ? 0 : undefined}
               className="flex min-h-0 flex-1 flex-col overflow-y-auto outline-none"
             >

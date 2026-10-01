@@ -58,6 +58,7 @@ pub fn run() {
             commands::git::git_create_commit,
             commands::github::github_pr_status,
             commands::github::github_repository,
+            commands::github::github_open_entity,
             commands::github::github_create_pr,
             commands::github::github_merge_pr,
             commands::chat_background::save_chat_background,

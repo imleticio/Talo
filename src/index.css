@@ -678,20 +678,135 @@
   opacity: 0.65;
 }
 
-.repository-pr-detail > div {
+.repository-entity-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 34fr) minmax(0, 66fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.repository-page {
+  container-type: inline-size;
+}
+
+.repository-entity-row {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: left;
+  transition: background 150ms;
+}
+
+.repository-entity-row:hover {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.repository-entity-row[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--accent) 40%, transparent);
+  box-shadow: inset 2px 0 color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+
+.repository-entity-row:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.repository-entity-detail {
+  min-width: 0;
+  border-left: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  padding-left: 24px;
+}
+
+.repository-entity-detail > div:first-child:not(.repository-entity-prose) {
   min-height: 0;
   border: 0;
   border-radius: 0;
-  border-top: 1px solid var(--border);
   background: transparent;
-  padding: 16px 0;
+  padding: 0;
 }
 
-@media (min-width: 1024px) {
-  .repository-pr-detail > div {
-    border-top: 0;
-    border-left: 1px solid var(--border);
-    padding: 0 0 0 24px;
+.repository-entity-prose {
+  max-width: 75ch;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--muted-foreground);
+}
+.repository-entity-prose > * + * {
+  margin-top: 16px;
+}
+.repository-entity-prose :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--foreground);
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 24px;
+}
+.repository-entity-prose h1 {
+  font-size: 20px;
+}
+.repository-entity-prose h2 {
+  font-size: 18px;
+}
+.repository-entity-prose :is(h3, h4, h5, h6) {
+  font-size: 14px;
+}
+.repository-entity-prose :is(ul, ol) {
+  padding-left: 24px;
+}
+.repository-entity-prose ul {
+  list-style: disc;
+}
+.repository-entity-prose ol {
+  list-style: decimal;
+}
+.repository-entity-prose li + li {
+  margin-top: 4px;
+}
+.repository-entity-prose a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.repository-entity-prose a:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.repository-entity-prose code {
+  font-size: 12px;
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.repository-entity-prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px;
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+  border-radius: 6px;
+}
+.repository-entity-prose pre code {
+  background: none;
+  padding: 0;
+}
+.repository-entity-prose blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 16px;
+}
+.repository-entity-prose hr {
+  border-color: var(--border);
+}
+
+@container (max-width: 600px) {
+  .repository-entity-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .repository-entity-layout > section:first-child {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .repository-entity-detail {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 24px 0 0;
   }
 }
 

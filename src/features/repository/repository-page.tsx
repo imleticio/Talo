@@ -10,6 +10,8 @@ import { toAppError, type AppError } from '@/services/errors'
 import type { ActivityPullRequest, GitWorkspace } from './repository-activity'
 import { RepositoryActivityFeed } from './repository-activity-feed'
 import { RepositoryChanges } from './repository-changes'
+import Markdown from 'react-markdown'
+import { EntityActions, EntityHeader, EntityState, EntityTime } from './repository-entity'
 
 type Issue = {
   number: number
@@ -17,6 +19,10 @@ type Issue = {
   body: string
   labels: { name: string }[]
   author: { login: string } | null
+  state: string
+  assignees: { login: string }[]
+  createdAt: string
+  updatedAt: string
 }
 type PullRequest = {
   number: number
@@ -25,6 +31,9 @@ type PullRequest = {
   headRefName: string
   baseRefName: string
   reviewDecision: string
+  state: string
+  author: { login: string } | null
+  createdAt: string
 }
 type RepositoryData = {
   info: {
@@ -168,7 +177,8 @@ export function RepositoryPage({
       setChoosing(false)
     }
   }
-  const issue = data?.issues.find((item) => item.number === selectedIssue)
+  const issue = data?.issues.find((item) => item.number === selectedIssue) ?? data?.issues[0]
+  const activePr = selectedPr ?? data?.pullRequests[0]?.number
   const branchPr = data?.pullRequests.find((item) => item.headRefName === data.branch)
   const repositoryName = data?.info.nameWithOwner.split('/')
 
@@ -464,7 +474,7 @@ export function RepositoryPage({
             </>
           )}
           {view === 'Pull requests' && (
-            <div className="grid items-start gap-6 lg:grid-cols-2">
+            <div className="repository-entity-layout">
               <section aria-label="Open pull requests" className="divide-y divide-border/60">
                 {!data.pullRequests.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open pull requests.</p>
@@ -473,25 +483,47 @@ export function RepositoryPage({
                   <button
                     key={pr.number}
                     disabled={merging}
-                    aria-pressed={selectedPr === pr.number}
+                    aria-pressed={activePr === pr.number}
                     onClick={() => setSelectedPr(pr.number)}
-                    className="w-full rounded-lg px-3 py-4 text-left hover:bg-accent/30 aria-pressed:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
+                    className="repository-entity-row"
                   >
-                    <p className="text-sm font-medium">{pr.title}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      #{pr.number} · {pr.isDraft ? 'Draft' : 'Open'} · {pr.headRefName} →{' '}
-                      {pr.baseRefName}
+                    <div className="flex items-center gap-2">
+                      <EntityState state={pr.state} draft={pr.isDraft} />
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        #{pr.number}
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{pr.title}</p>
+                    <p
+                      className="mt-1 truncate text-xs text-muted-foreground"
+                      title={`${pr.headRefName} → ${pr.baseRefName}`}
+                    >
+                      {pr.headRefName} → {pr.baseRefName}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {pr.author?.login}
+                      {pr.author && ' · '}
+                      <EntityTime date={pr.createdAt} />
                     </p>
                   </button>
                 ))}
               </section>
-              {selectedPr && (
-                <div className="repository-pr-detail">
+              {activePr && (
+                <div className="repository-entity-detail">
                   <GitHubPanel
-                    key={`${path}:${selectedPr}`}
+                    key={`${path}:${activePr}`}
                     path={path!}
-                    number={selectedPr}
+                    number={activePr}
                     inline
+                    entityMetadata={data.pullRequests.find((pr) => pr.number === activePr)}
+                    onAsk={() => {
+                      const pr = data.pullRequests.find((item) => item.number === activePr)
+                      chat.startIssueChat(
+                        `Help me understand GitHub pull request ${data.info.nameWithOwner}#${activePr}: ${pr?.title ?? ''}\n\nRepository: ${path}\n${pr ? `${pr.headRefName} → ${pr.baseRefName}` : ''}`,
+                      )
+                      onShowChat()
+                    }}
+                    askDisabled={Boolean(chat.deletingId) || merging}
                     disabled={chat.activity !== 'idle'}
                     onMergingChange={(value) => {
                       setMerging(value)
@@ -503,7 +535,7 @@ export function RepositoryPage({
             </div>
           )}
           {view === 'Issues' && (
-            <div className="grid items-start gap-6 lg:grid-cols-2">
+            <div className="repository-entity-layout">
               <section aria-label="Open issues" className="divide-y divide-border/60">
                 {!data.issues.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open issues.</p>
@@ -511,14 +543,23 @@ export function RepositoryPage({
                 {data.issues.map((item) => (
                   <button
                     key={item.number}
-                    aria-pressed={selectedIssue === item.number}
+                    aria-pressed={issue?.number === item.number}
                     onClick={() => setSelectedIssue(item.number)}
-                    className="w-full rounded-lg px-3 py-4 text-left hover:bg-accent/30 aria-pressed:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
+                    className="repository-entity-row"
                   >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      #{item.number}
-                      {item.author && ` · ${item.author.login}`}
+                    <div className="flex items-center gap-2">
+                      <EntityState state={item.state} />
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        #{item.number}
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">
+                      {item.title}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.author?.login}
+                      {item.author && ' · '}
+                      <EntityTime date={item.createdAt} />
                     </p>
                     {item.labels.length > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground">
@@ -529,23 +570,53 @@ export function RepositoryPage({
                 ))}
               </section>
               {issue && (
-                <section className="border-t border-border/60 pt-4 lg:border-t-0 lg:border-l lg:pl-6">
-                  <h2 className="text-base font-medium">{issue.title}</h2>
-                  <p className="mt-4 max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                    {issue.body || 'No description provided.'}
-                  </p>
-                  <Button
-                    className="mt-6"
+                <section className="repository-entity-detail">
+                  <EntityHeader
+                    kind="Issue"
+                    number={issue.number}
+                    state={issue.state}
+                    repository={data.info.nameWithOwner}
+                    title={issue.title}
+                  >
+                    {issue.author && <span>{issue.author.login} ·</span>}
+                    <span>
+                      {issue.assignees.length
+                        ? `Assigned to ${issue.assignees.map((person) => person.login).join(', ')}`
+                        : 'Unassigned'}{' '}
+                      ·
+                    </span>
+                    <EntityTime date={issue.createdAt} prefix="Created " />
+                    <span>·</span>
+                    <EntityTime date={issue.updatedAt} prefix="Updated " />
+                  </EntityHeader>
+                  <EntityActions
+                    key={`${path}:${issue.number}`}
+                    path={path!}
+                    kind="issue"
+                    number={issue.number}
                     disabled={Boolean(chat.deletingId)}
-                    onClick={() => {
+                    onAsk={() => {
                       chat.startIssueChat(
                         `Help me work on GitHub issue ${data.info.nameWithOwner}#${issue.number}: ${issue.title}\n\nRepository: ${path}\n\n${issue.body}`,
                       )
                       onShowChat()
                     }}
-                  >
-                    Start chat from issue
-                  </Button>
+                  />
+                  <div className="repository-entity-prose mt-6 border-t border-border/60 pt-6">
+                    <Markdown
+                      skipHtml
+                      components={{
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noopener noreferrer">
+                            {children}
+                          </a>
+                        ),
+                        img: ({ alt }) => <span>{alt || 'Image'}</span>,
+                      }}
+                    >
+                      {issue.body || 'No description provided.'}
+                    </Markdown>
+                  </div>
                 </section>
               )}
             </div>

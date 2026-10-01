@@ -10,6 +10,28 @@ use crate::errors::{AppError, AppResult};
 const PR_FIELDS: &str = "number,title,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,isCrossRepository";
 const ACTIVITY_PR_FIELDS: &str = "number,title,isDraft,headRefName,baseRefName,reviewDecision,state,createdAt,closedAt,mergedAt,mergeCommit,author,mergedBy";
 
+#[tauri::command]
+pub async fn github_open_entity(path: String, kind: String, number: u64) -> AppResult<()> {
+    if !matches!(kind.as_str(), "pr" | "issue") || number == 0 {
+        return Err(AppError::new("github", "Invalid GitHub entity."));
+    }
+    let (repository, _) = context(path).await?;
+    run_gh_output(
+        std::ffi::OsStr::new("gh"),
+        &[
+            &kind,
+            "view",
+            &number.to_string(),
+            "--repo",
+            &format!("github.com/{repository}"),
+            "--web",
+        ],
+        None,
+    )
+    .await?;
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PullRequest {
@@ -304,7 +326,7 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 "--limit",
                 "100",
                 "--json",
-                "number,title,body,labels,author",
+                "number,title,body,labels,author,state,assignees,createdAt,updatedAt",
             ])
             .await
         },

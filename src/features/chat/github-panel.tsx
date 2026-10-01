@@ -11,6 +11,7 @@ import { Check, Circle, GitMerge, GitPullRequest, LoaderCircle, RefreshCw, X } f
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { toAppError, type AppError } from '@/services/errors'
+import { EntityActions, EntityHeader, EntityTime } from '@/features/repository/repository-entity'
 
 type CheckStatus = {
   name?: string
@@ -29,6 +30,7 @@ type PullRequest = {
   headRefOid: string
   reviewDecision: string
   statusCheckRollup: CheckStatus[] | null
+  mergeable: string
 }
 type GitHubStatus = {
   repository: string
@@ -108,12 +110,18 @@ export function GitHubPanel({
   onMergingChange,
   number,
   inline = false,
+  entityMetadata,
+  onAsk,
+  askDisabled = false,
 }: {
   path: string
   disabled: boolean
   onMergingChange: (merging: boolean) => void
   number?: number
   inline?: boolean
+  entityMetadata?: { author: { login: string } | null; createdAt: string }
+  onAsk?: () => void
+  askDisabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [data, setData] = useState<GitHubStatus | null>(null)
@@ -240,10 +248,14 @@ export function GitHubPanel({
           }}
           className="branch-picker-popover z-50 flex max-h-[var(--radix-popover-content-available-height)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-y-auto rounded-xl border border-border p-4 text-popover-foreground outline-none"
         >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="truncate text-xs text-muted-foreground">
-              {data?.repository ?? 'GitHub'}
-            </span>
+          <div
+            className={`mb-3 flex items-center justify-between gap-3 ${inline ? 'justify-end' : ''}`}
+          >
+            {!inline && (
+              <span className="truncate text-xs text-muted-foreground">
+                {data?.repository ?? 'GitHub'}
+              </span>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -286,44 +298,90 @@ export function GitHubPanel({
           )}
           {pr ? (
             <>
-              <div className="mb-3 flex items-start gap-2">
-                {pr.state === 'MERGED' ? (
-                  <GitMerge
-                    className="mt-0.5 size-4 shrink-0 text-purple-600 dark:text-purple-400"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <GitPullRequest className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">
-                    {pr.title} <span className="text-muted-foreground">#{pr.number}</span>
-                  </p>
-                  <p
-                    className={`mt-1 text-xs ${pr.state === 'MERGED' ? 'font-medium text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`}
+              {inline ? (
+                <div className="mb-6 border-b border-border/60 pb-6">
+                  <EntityHeader
+                    kind="Pull request"
+                    number={pr.number}
+                    state={pr.state}
+                    draft={pr.isDraft}
+                    repository={data?.repository ?? ''}
+                    title={pr.title}
                   >
-                    {pr.state === 'MERGED'
-                      ? 'Merged'
-                      : pr.isDraft
-                        ? 'Draft'
-                        : pr.state === 'OPEN'
-                          ? 'Open'
-                          : 'Closed'}
-                  </p>
+                    {entityMetadata?.author && <span>{entityMetadata.author.login} ·</span>}
+                    {entityMetadata?.createdAt && (
+                      <EntityTime date={entityMetadata.createdAt} prefix="Opened " />
+                    )}
+                    <span className="w-full break-all">
+                      {pr.headRefName} → {pr.baseRefName}
+                    </span>
+                  </EntityHeader>
+                  {onAsk && (
+                    <EntityActions
+                      path={path}
+                      kind="pr"
+                      number={pr.number}
+                      disabled={askDisabled || merging}
+                      onAsk={onAsk}
+                    />
+                  )}
                 </div>
-              </div>
-              <p
-                className="mb-4 truncate text-xs text-muted-foreground"
-                title={`${pr.headRefName} → ${pr.baseRefName}`}
+              ) : (
+                <>
+                  <div className="mb-3 flex items-start gap-2">
+                    {pr.state === 'MERGED' ? (
+                      <GitMerge
+                        className="mt-0.5 size-4 shrink-0 text-purple-600 dark:text-purple-400"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <GitPullRequest className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">
+                        {pr.title} <span className="text-muted-foreground">#{pr.number}</span>
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${pr.state === 'MERGED' ? 'font-medium text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`}
+                      >
+                        {pr.state === 'MERGED'
+                          ? 'Merged'
+                          : pr.isDraft
+                            ? 'Draft'
+                            : pr.state === 'OPEN'
+                              ? 'Open'
+                              : 'Closed'}
+                      </p>
+                    </div>
+                  </div>
+                  <p
+                    className="mb-4 truncate text-xs text-muted-foreground"
+                    title={`${pr.headRefName} → ${pr.baseRefName}`}
+                  >
+                    {pr.headRefName} → {pr.baseRefName}
+                  </p>
+                </>
+              )}
+              <div
+                className={
+                  inline ? 'mb-4 space-y-1 text-xs' : 'mb-3 flex justify-between gap-2 text-xs'
+                }
               >
-                {pr.headRefName} → {pr.baseRefName}
-              </p>
-              <div className="mb-3 flex justify-between gap-2 text-xs">
                 <span className="text-muted-foreground">Review</span>
-                <span>{reviewLabels[pr.reviewDecision] ?? 'No review decision'}</span>
+                <span
+                  className={
+                    inline
+                      ? `block ${pr.reviewDecision === 'APPROVED' ? 'text-emerald-500' : pr.reviewDecision === 'CHANGES_REQUESTED' ? 'text-destructive' : pr.reviewDecision === 'REVIEW_REQUIRED' ? 'text-amber-500' : 'text-muted-foreground'}`
+                      : undefined
+                  }
+                >
+                  {reviewLabels[pr.reviewDecision] ?? 'No review decision'}
+                </span>
               </div>
-              <div className="border-t border-border py-3">
-                <p className="mb-1 text-xs font-medium">Checks</p>
+              <div className={inline ? 'pb-4' : 'border-t border-border py-3'}>
+                <p className={`mb-1 text-xs ${inline ? 'text-muted-foreground' : 'font-medium'}`}>
+                  Checks
+                </p>
                 {pr.statusCheckRollup?.length ? (
                   <ul>
                     {pr.statusCheckRollup.map((check, index) => (
@@ -334,19 +392,42 @@ export function GitHubPanel({
                   <p className="py-1 text-xs text-muted-foreground">No checks reported.</p>
                 )}
               </div>
+              {inline && (
+                <div className="pb-6 text-xs">
+                  <p className="mb-1 text-muted-foreground">Conflicts</p>
+                  <p
+                    className={
+                      pr.mergeable === 'CONFLICTING'
+                        ? 'text-destructive'
+                        : pr.mergeable === 'MERGEABLE'
+                          ? 'text-emerald-500'
+                          : 'text-muted-foreground'
+                    }
+                  >
+                    {pr.mergeable === 'CONFLICTING'
+                      ? 'Conflicts must be resolved'
+                      : pr.mergeable === 'MERGEABLE'
+                        ? 'No conflicts'
+                        : 'Conflict status unavailable'}
+                  </p>
+                </div>
+              )}
               {pr.state === 'OPEN' && (
                 <div className="border-t border-border pt-3">
+                  {inline && <h3 className="mb-3 text-sm font-medium">Merge</h3>}
                   {data?.mergeBlockReason && (
                     <p className="mb-3 text-xs text-muted-foreground">{data.mergeBlockReason}</p>
                   )}
                   {data && data.mergeMethods.length > 1 && (
-                    <label className="mb-3 flex items-center justify-between gap-2 text-xs">
+                    <label
+                      className={`mb-3 flex gap-2 text-xs ${inline ? 'max-w-64 flex-col items-start' : 'items-center justify-between'}`}
+                    >
                       <span className="text-muted-foreground">Merge method</span>
                       <select
                         value={method}
                         disabled={merging || loading}
                         onChange={(event) => setMethod(event.target.value)}
-                        className="min-w-0 rounded-md border border-border bg-popover px-2 py-1 text-xs"
+                        className="min-w-0 max-w-full rounded-md border border-border bg-popover px-2 py-1 text-xs focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         {data.mergeMethods.map((value) => (
                           <option key={value} value={value}>
@@ -360,7 +441,7 @@ export function GitHubPanel({
                     type="button"
                     disabled={!data?.canMerge || disabled || loading || merging || Boolean(error)}
                     onClick={() => void merge()}
-                    className="h-9 w-full gap-2 text-xs"
+                    className={`h-9 gap-2 text-xs ${inline ? '' : 'w-full'}`}
                   >
                     {merging ? (
                       <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />

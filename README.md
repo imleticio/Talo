@@ -45,7 +45,10 @@ The next MVP step is connecting this backend workflow to the React chat interfac
 
 ## Persistence
 
-Talo stores its core domain data locally in `talo.db` using `rusqlite`.
+See [GitHub integration](docs/github.md) to connect your account, view pull request
+checks and reviews, and merge a published PR from the chat.
+
+## Develop and contribute
 
 The current schema includes:
 

@@ -73,7 +73,7 @@ function RecentConversation({
     <div className="group min-w-0">
       <div
         data-active={chat.activeId === conversation.id}
-        className="talo-chat-card relative min-w-0 rounded-xl border border-transparent hover:bg-sidebar-accent/50 data-[active=true]:border-sidebar-border data-[active=true]:bg-sidebar-accent"
+        className="talo-chat-card relative min-w-0 rounded-lg border border-transparent hover:bg-sidebar-accent/50 data-[active=true]:bg-sidebar-accent"
       >
         <Button
           type="button"
@@ -84,15 +84,10 @@ function RecentConversation({
           aria-current={chat.activeId === conversation.id ? 'page' : undefined}
           disabled={blocked}
           onClick={onOpen}
-          className="talo-chat-card-open h-16 w-full min-w-0 flex-col items-start justify-center gap-1 rounded-xl border-0 bg-transparent py-2.5 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
+          className="talo-chat-card-open h-9 w-full min-w-0 justify-start rounded-lg border-0 bg-transparent py-2 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
         >
-          <span
-            id={modelDescriptionId}
-            data-chat-model
-            title={`Last response model: ${modelLabel}`}
-            className="w-full truncate text-[10px] leading-4 text-muted-foreground"
-          >
-            {modelLabel}
+          <span id={modelDescriptionId} data-chat-model className="sr-only">
+            Last response model: {modelLabel}
           </span>
           <span className="w-full truncate leading-5">{conversation.title}</span>
         </Button>
@@ -106,7 +101,7 @@ function RecentConversation({
           aria-expanded={confirming}
           disabled={blocked || running}
           onClick={() => setConfirming((current) => !current)}
-          className={`absolute right-1 bottom-1 size-8 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
+          className={`absolute top-1/2 right-1 size-8 -translate-y-1/2 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
         >
           <Trash2 className="size-3" strokeWidth={1.8} aria-hidden="true" />
         </Button>

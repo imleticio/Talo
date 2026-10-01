@@ -15,6 +15,9 @@ export type Conversation = {
   title: string
   lastProviderId: string | null
   lastModelId: string | null
+  repositoryPath?: string | null
+  branch?: string | null
+  agentId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -50,8 +53,11 @@ export const updateProject = (projectId: string, name: string, description: stri
 export const deleteProject = (projectId: string) => call<void>('delete_project', { projectId })
 
 // Omit the filter to include standalone conversations.
-export const createConversation = (title: string, projectId: string | null = null) =>
-  call<Conversation>('create_conversation', { title, projectId })
+export const createConversation = (
+  title: string,
+  projectId: string | null = null,
+  repositoryPath: string | null = null,
+) => call<Conversation>('create_conversation', { title, projectId, repositoryPath })
 export const listConversations = (projectId: string | null = null) =>
   call<Conversation[]>('list_conversations', { projectId })
 export const getConversation = (conversationId: string) =>

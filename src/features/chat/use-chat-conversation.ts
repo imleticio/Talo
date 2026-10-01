@@ -489,7 +489,13 @@ export function useChatConversation() {
     const previousSequence = tab.messages.at(-1)?.sequence ?? 0
     try {
       if (!id) {
-        const conversation = await createConversation(conversationTitle(text))
+        let repositoryPath: string | null = null
+        try {
+          repositoryPath = localStorage.getItem('talo.git-repository')
+        } catch {
+          // Repository context is optional when preferences are unavailable.
+        }
+        const conversation = await createConversation(conversationTitle(text), null, repositoryPath)
         ++conversationsRequest.current
         id = conversation.id
         runtime.unboundId = id

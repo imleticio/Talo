@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { CircleDot, FolderOpen, GitBranch, GitFork, GitPullRequest, RefreshCw } from 'lucide-react'
+import { CircleDot, FolderOpen, GitFork, GitPullRequest, RefreshCw } from 'lucide-react'
+import { BranchIcon } from '@/components/ui/branch-icon'
 import { Button } from '@/components/ui/button'
 import { GitHubPanel } from '@/features/chat/github-panel'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
@@ -140,7 +141,7 @@ export function RepositoryPage({
           <p className="mt-4 flex min-h-4 items-center gap-2 text-xs text-muted-foreground">
             {data ? (
               <>
-                <GitBranch className="size-3.5" />
+                <BranchIcon className="size-3.5" />
                 {data.branch}
                 <span>· {data.info.isPrivate ? 'Private' : 'Public'}</span>
               </>

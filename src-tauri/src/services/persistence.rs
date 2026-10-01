@@ -108,6 +108,24 @@ pub fn create_conversation(
     db.create_conversation(project_id.as_deref(), &required(&title, "title")?)
 }
 
+pub fn create_conversation_with_repository(
+    db: &Database,
+    project_id: Option<String>,
+    title: String,
+    repository_path: Option<&str>,
+    branch: Option<&str>,
+) -> AppResult<Conversation> {
+    if let Some(ref project_id) = project_id {
+        id(project_id)?;
+    }
+    db.create_conversation_with_repository(
+        project_id.as_deref(),
+        &required(&title, "title")?,
+        repository_path,
+        branch,
+    )
+}
+
 // No filter means all conversations, including those not assigned to a project.
 pub fn list_conversations(
     db: &Database,

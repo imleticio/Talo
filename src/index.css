@@ -250,6 +250,37 @@
   width: calc(100% - var(--chat-gutter) * 2 - 12px);
 }
 
+.chat-page[data-has-transcript='true'] {
+  padding-block: 16px;
+}
+
+.chat-page[data-has-transcript='true'] .chat-transcript,
+.chat-page[data-has-transcript='true'] .chat-composer-area {
+  max-width: 42rem;
+}
+
+.chat-page[data-has-transcript='true'] .chat-composer {
+  min-height: 96px;
+  padding: 12px;
+  border-radius: 20px;
+}
+
+.chat-page[data-has-transcript='true'] .chat-composer textarea {
+  min-height: 32px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 24px;
+}
+
+.chat-page[data-has-transcript='true'] .branch-picker-trigger {
+  font-size: 12px;
+}
+
+.chat-page[data-has-transcript='true'] .chat-repository-toolbar {
+  padding-inline: 12px;
+}
+
 .chat-user-message {
   color: var(--foreground);
   background: color-mix(in srgb, var(--card) 86%, transparent);
@@ -833,12 +864,28 @@
   mask-image: var(--sidebar-fade-mask);
 }
 
-.dark .talo-sidebar [aria-current='page']:not(.talo-chat-card-open),
-.dark .talo-chat-card[data-active='true'] {
+.dark .talo-sidebar [aria-current='page']:not(.talo-chat-card-open) {
   background: linear-gradient(145deg, rgb(66 72 84 / 35%), rgb(24 27 34 / 60%));
   border-color: rgb(255 255 255 / 10%);
   -webkit-backdrop-filter: blur(6px) saturate(1.15);
   backdrop-filter: blur(6px) saturate(1.15);
+}
+
+.talo-chat-card {
+  transition: background-color 150ms ease;
+}
+
+.talo-chat-card-open {
+  padding: 8px 28px 8px 8px;
+}
+
+.dark .talo-chat-card[data-active='true'] {
+  background: rgb(255 255 255 / 9%);
+  border-color: transparent;
+}
+
+.dark .talo-chat-card:not([data-active='true']):hover {
+  background: rgb(255 255 255 / 5%);
 }
 
 .talo-sidebar-label,

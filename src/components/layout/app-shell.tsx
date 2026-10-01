@@ -8,8 +8,10 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { BranchIcon } from '@/components/ui/branch-icon'
 import { GradientBlurBackground } from '@/features/chat/gradient-blur-background'
 import { ChatTabs } from '@/features/chat/chat-tabs'
+import { ChatAgentMark } from '@/features/chat/chat-agent-mark'
 import { hazeStyle } from '@/features/chat/haze-style'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import type { ChatBackground } from '@/features/settings/use-chat-background'
@@ -84,12 +86,26 @@ function RecentConversation({
           aria-current={chat.activeId === conversation.id ? 'page' : undefined}
           disabled={blocked}
           onClick={onOpen}
-          className="talo-chat-card-open h-9 w-full min-w-0 justify-start rounded-lg border-0 bg-transparent py-2 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
+          className="talo-chat-card-open h-auto min-h-9 w-full min-w-0 justify-start rounded-lg border-0 bg-transparent py-2 pr-11 pl-3 text-left text-xs font-normal text-muted-foreground hover:bg-transparent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-foreground dark:hover:bg-transparent"
         >
           <span id={modelDescriptionId} data-chat-model className="sr-only">
             Last response model: {modelLabel}
           </span>
-          <span className="w-full truncate leading-5">{conversation.title}</span>
+          <span className="flex w-full min-w-0 flex-col gap-0.5">
+            <span className="flex min-w-0 items-center gap-2 leading-4">
+              <ChatAgentMark agentId={conversation.agentId} />
+              <span className="truncate">{conversation.title}</span>
+            </span>
+            {conversation.branch && (
+              <span
+                className="flex min-w-0 items-center gap-2 text-[11px] font-normal leading-4 text-muted-foreground/75"
+                title={`${conversation.repositoryPath ?? ''} · ${conversation.branch}`}
+              >
+                <BranchIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{conversation.branch}</span>
+              </span>
+            )}
+          </span>
         </Button>
         <Button
           ref={deleteButton}
@@ -101,7 +117,7 @@ function RecentConversation({
           aria-expanded={confirming}
           disabled={blocked || running}
           onClick={() => setConfirming((current) => !current)}
-          className={`absolute top-1/2 right-1 size-8 -translate-y-1/2 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
+          className={`absolute top-1/2 right-1 size-6 -translate-y-1/2 text-muted-foreground/70 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 ${confirming ? '' : '[@media(hover:hover)]:opacity-0'}`}
         >
           <Trash2 className="size-3" strokeWidth={1.8} aria-hidden="true" />
         </Button>
@@ -425,7 +441,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
               {children}
             </main>
           </div>
-          <TerminalPanel connection={chat.connection.replace('_', ' ')} workspace={workspace} />
+          <TerminalPanel workspace={workspace} />
         </div>
       </div>
     </div>

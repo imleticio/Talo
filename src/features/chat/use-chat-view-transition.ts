@@ -10,6 +10,7 @@ type PendingSend = {
 
 type EmptyLayout = {
   composer: DOMRect
+  borderRadius: string
   welcome: HTMLElement
   welcomeBounds: DOMRect
 }
@@ -122,6 +123,7 @@ export function useChatViewTransition({
     const measure = () => {
       emptyLayout.current = {
         composer: composer.getBoundingClientRect(),
+        borderRadius: getComputedStyle(composer).borderRadius,
         welcome,
         welcomeBounds: welcome.getBoundingClientRect(),
       }
@@ -168,6 +170,7 @@ export function useChatViewTransition({
       return
 
     const destination = composer.getBoundingClientRect()
+    const destinationStyle = getComputedStyle(composer)
     const ghost = source.welcome.cloneNode(true) as HTMLElement
     ghost.setAttribute('aria-hidden', 'true')
     ghost.inert = true
@@ -187,8 +190,14 @@ export function useChatViewTransition({
       [
         {
           transform: `translate(${source.composer.left - destination.left}px, ${source.composer.top - destination.top}px)`,
+          width: `${source.composer.width}px`,
+          borderRadius: source.borderRadius,
         },
-        { transform: 'none' },
+        {
+          transform: 'none',
+          width: `${destination.width}px`,
+          borderRadius: destinationStyle.borderRadius,
+        },
       ],
       { duration: 680, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
     )

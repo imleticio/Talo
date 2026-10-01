@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Check, Circle, GitMerge, GitPullRequest, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { Popover } from 'radix-ui'
@@ -78,14 +85,33 @@ const reviewLabels: Record<string, string> = {
   REVIEW_REQUIRED: 'Review required',
 }
 
+function PanelContainer({ inline, children }: { inline: boolean; children: ReactNode }) {
+  return inline ? <>{children}</> : <Popover.Portal>{children}</Popover.Portal>
+}
+
+function PanelContent({
+  inline,
+  ...props
+}: ComponentProps<typeof Popover.Content> & { inline: boolean }) {
+  return inline ? (
+    <div className="rounded-xl border border-border bg-background/50 p-6">{props.children}</div>
+  ) : (
+    <Popover.Content {...props} />
+  )
+}
+
 export function GitHubPanel({
   path,
   disabled,
   onMergingChange,
+  number,
+  inline = false,
 }: {
   path: string
   disabled: boolean
   onMergingChange: (merging: boolean) => void
+  number?: number
+  inline?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [data, setData] = useState<GitHubStatus | null>(null)
@@ -103,7 +129,7 @@ export function GitHubPanel({
     setLoading(true)
     setError(null)
     try {
-      const next = await invoke<GitHubStatus>('github_pr_status', { path })
+      const next = await invoke<GitHubStatus>('github_pr_status', { path, number })
       if (id !== request.current) return
       setData(next)
       setMethod((previous) =>
@@ -114,7 +140,13 @@ export function GitHubPanel({
     } finally {
       if (id === request.current) setLoading(false)
     }
-  }, [path])
+  }, [path, number])
+
+  useEffect(() => {
+    if (!inline) return
+    const timer = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [inline, load])
 
   useEffect(
     () => () => {
@@ -123,13 +155,13 @@ export function GitHubPanel({
     [],
   )
   useEffect(() => {
-    if (!open) return
+    if (!open && !inline) return
     const refresh = () => {
       void load()
     }
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
-  }, [open, load])
+  }, [open, inline, load])
 
   function changeOpen(next: boolean) {
     if (mergeLock.current) return
@@ -174,22 +206,25 @@ export function GitHubPanel({
 
   const pr = data?.pullRequest
   return (
-    <Popover.Root open={open} onOpenChange={changeOpen}>
-      <Popover.Trigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={disabled || merging}
-          aria-label="GitHub pull request"
-          title="GitHub pull request"
-          className="h-8 shrink-0 gap-2 rounded-lg px-2 text-muted-foreground hover:text-foreground"
-        >
-          <GitHubMark />
-          <span className="text-xs">GitHub</span>
-        </Button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
+    <Popover.Root open={inline || open} onOpenChange={changeOpen}>
+      {!inline && (
+        <Popover.Trigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={disabled || merging}
+            aria-label="GitHub pull request"
+            title="GitHub pull request"
+            className="h-8 shrink-0 gap-2 rounded-lg px-2 text-muted-foreground hover:text-foreground"
+          >
+            <GitHubMark />
+            <span className="text-xs">GitHub</span>
+          </Button>
+        </Popover.Trigger>
+      )}
+      <PanelContainer inline={inline}>
+        <PanelContent
+          inline={inline}
           align="end"
           sideOffset={8}
           collisionPadding={16}
@@ -338,8 +373,8 @@ export function GitHubPanel({
               <p className="py-4 text-sm text-muted-foreground">No pull request for this branch.</p>
             )
           )}
-        </Popover.Content>
-      </Popover.Portal>
+        </PanelContent>
+      </PanelContainer>
     </Popover.Root>
   )
 }

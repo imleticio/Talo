@@ -180,30 +180,52 @@ fn block_reason(pr: &PullRequest, permission: &str) -> Option<String> {
     Some(reason.into())
 }
 
-async fn status(path: String) -> AppResult<GitHubStatus> {
+fn matches_target(pr: &PullRequest, branch: &str, number: Option<u64>) -> bool {
+    number.map_or(
+        !pr.is_cross_repository && pr.head_ref_name == branch,
+        |number| pr.number == number,
+    )
+}
+
+async fn status(path: String, number: Option<u64>) -> AppResult<GitHubStatus> {
     let (repository, branch) = context(path).await?;
     let info: RepositoryInfo = decode(gh(&["repo", "view", &format!("github.com/{repository}"), "--json", "nameWithOwner,mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed,viewerPermission"]).await?)?;
-    let prs: Vec<PullRequest> = decode(
-        gh(&[
-            "pr",
-            "list",
-            "--repo",
-            &format!("github.com/{repository}"),
-            "--head",
-            &branch,
-            "--state",
-            "all",
-            "--limit",
-            "30",
-            "--json",
-            PR_FIELDS,
-        ])
-        .await?,
-    )?;
-    // A same-named branch on another user's fork must never become our merge target.
+    let prs: Vec<PullRequest> = if let Some(number) = number {
+        vec![decode(
+            gh(&[
+                "pr",
+                "view",
+                &number.to_string(),
+                "--repo",
+                &format!("github.com/{repository}"),
+                "--json",
+                PR_FIELDS,
+            ])
+            .await?,
+        )?]
+    } else {
+        decode(
+            gh(&[
+                "pr",
+                "list",
+                "--repo",
+                &format!("github.com/{repository}"),
+                "--head",
+                &branch,
+                "--state",
+                "all",
+                "--limit",
+                "30",
+                "--json",
+                PR_FIELDS,
+            ])
+            .await?,
+        )?
+    };
+    // Branch lookup excludes forks; an explicitly selected PR is identified by number.
     let mut matching: Vec<_> = prs
         .into_iter()
-        .filter(|pr| !pr.is_cross_repository && pr.head_ref_name == branch)
+        .filter(|pr| matches_target(pr, &branch, number))
         .collect();
     matching.sort_by_key(|pr| pr.state != "OPEN");
     let pull_request = matching.into_iter().next();
@@ -224,8 +246,57 @@ async fn status(path: String) -> AppResult<GitHubStatus> {
 }
 
 #[tauri::command]
-pub async fn github_pr_status(path: String) -> AppResult<GitHubStatus> {
-    status(path).await
+pub async fn github_pr_status(path: String, number: Option<u64>) -> AppResult<GitHubStatus> {
+    status(path, number).await
+}
+
+#[tauri::command]
+pub async fn github_repository(path: String) -> AppResult<Value> {
+    let (repository, branch) = context(path).await?;
+    let repo = format!("github.com/{repository}");
+    let (info, prs, issues) = tokio::try_join!(
+        async {
+            gh(&[
+                "repo",
+                "view",
+                &repo,
+                "--json",
+                "nameWithOwner,description,defaultBranchRef,isPrivate",
+            ])
+            .await
+        },
+        async {
+            gh(&[
+                "pr",
+                "list",
+                "--repo",
+                &repo,
+                "--state",
+                "open",
+                "--limit",
+                "100",
+                "--json",
+                "number,title,isDraft,headRefName,baseRefName,reviewDecision",
+            ])
+            .await
+        },
+        async {
+            gh(&[
+                "issue",
+                "list",
+                "--repo",
+                &repo,
+                "--state",
+                "open",
+                "--limit",
+                "100",
+                "--json",
+                "number,title,body,labels,author",
+            ])
+            .await
+        }
+    )?;
+    Ok(serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues}))
 }
 
 #[derive(Serialize)]
@@ -277,7 +348,7 @@ pub async fn github_merge_pr(
     head_oid: String,
     method: String,
 ) -> AppResult<MergeResult> {
-    let current = status(path).await?;
+    let current = status(path, Some(number)).await?;
     validate_merge(&current, &repository, number, &head_oid, &method)?;
     let value = gh(&[
         "api",
@@ -325,6 +396,19 @@ mod tests {
             can_merge: true,
             merge_block_reason: None,
         }
+    }
+
+    #[test]
+    fn explicit_selection_supports_other_branches_and_forks_without_ambiguous_branch_lookup() {
+        let mut current = ready();
+        let pr = current.pull_request.as_mut().unwrap();
+        assert!(matches_target(pr, "feature", None));
+        assert!(!matches_target(pr, "main", None));
+        assert!(matches_target(pr, "main", Some(7)));
+        assert!(!matches_target(pr, "main", Some(8)));
+        pr.is_cross_repository = true;
+        assert!(!matches_target(pr, "feature", None));
+        assert!(matches_target(pr, "main", Some(7)));
     }
 
     #[test]

@@ -61,9 +61,26 @@ pub async fn create_conversation(
     db: State<'_, Database>,
     project_id: Option<String>,
     title: String,
+    repository_path: Option<String>,
 ) -> AppResult<Conversation> {
+    let repository = match repository_path {
+        Some(path) => Some(
+            super::git::git_repository(path)
+                .await
+                .map_err(|message| crate::errors::AppError::new("git", message))?,
+        ),
+        None => None,
+    };
     run(db, move |db| {
-        persistence::create_conversation(&db, project_id, title)
+        persistence::create_conversation_with_repository(
+            &db,
+            project_id,
+            title,
+            repository.as_ref().map(|repo| repo.path.as_str()),
+            repository
+                .as_ref()
+                .map(|repo| repo.branch.as_deref().unwrap_or(&repo.revision)),
+        )
     })
     .await
 }

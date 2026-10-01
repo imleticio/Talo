@@ -24,8 +24,8 @@ function ChatMessage({ message, chat }: { message: Message; chat: ChatConversati
         data-message-role={message.role}
         className={
           isAssistant
-            ? 'chat-assistant-message w-full min-w-0 text-[15px] leading-7 text-foreground'
-            : 'chat-user-message max-w-[90%] min-w-0 rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[80%]'
+            ? 'chat-assistant-message w-full min-w-0 text-sm leading-6 text-foreground'
+            : 'chat-user-message max-w-[90%] min-w-0 rounded-2xl px-3 py-2 text-sm leading-6 sm:max-w-[80%]'
         }
       >
         <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
@@ -149,7 +149,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             ref={transcriptRef}
             aria-label="Conversation"
             aria-live="polite"
-            className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-7 pt-3 pb-7"
+            className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-6 pt-3 pb-6"
           >
             {messages.map((message) =>
               waiting &&
@@ -168,7 +168,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           </ol>
         </div>
       )}
-      <div className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
+      <div key="composer" className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
         {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
         {!hasTranscript && chat.loadingHistory && (
           <p role="status" className="mb-8 text-center text-sm text-muted-foreground">

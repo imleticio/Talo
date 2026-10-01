@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { CircleDot, FolderOpen, GitBranch, GitFork, GitPullRequest, RefreshCw } from 'lucide-react'
+import { CircleDot, FolderOpen, GitFork, GitPullRequest, RefreshCw } from 'lucide-react'
+import { BranchIcon } from '@/components/ui/branch-icon'
 import { Button } from '@/components/ui/button'
 import { GitHubPanel } from '@/features/chat/github-panel'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
@@ -32,6 +33,8 @@ type RepositoryData = {
   branch: string
   pullRequests: PullRequest[]
   issues: Issue[]
+  commits: { sha: string; title: string }[]
+  published: boolean
 }
 const storageKey = 'talo.git-repository'
 function savedPath() {
@@ -55,6 +58,10 @@ export function RepositoryPage({
   const [loading, setLoading] = useState(() => Boolean(savedPath()) && isTauri())
   const [choosing, setChoosing] = useState(false)
   const [merging, setMerging] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<AppError | null>(null)
+  const [prTitle, setPrTitle] = useState('')
+  const [prBody, setPrBody] = useState('')
   const [view, setView] = useState<'Overview' | 'Pull requests' | 'Issues'>('Overview')
   const [selectedPr, setSelectedPr] = useState<number | null>(null)
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null)
@@ -101,6 +108,9 @@ export function RepositoryPage({
       setLoading(true)
       setSelectedPr(null)
       setSelectedIssue(null)
+      setCreateError(null)
+      setPrTitle('')
+      setPrBody('')
       setPath(next)
       try {
         localStorage.setItem(storageKey, next)
@@ -112,6 +122,27 @@ export function RepositoryPage({
       setError(toAppError(reason))
     } finally {
       setChoosing(false)
+    }
+  }
+  async function createPullRequest() {
+    if (!path || creating) return
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const created = await invoke<{ number: number }>('github_create_pr', {
+        path,
+        title: prTitle,
+        body: prBody,
+      })
+      setPrTitle('')
+      setPrBody('')
+      setSelectedPr(created.number)
+      setView('Pull requests')
+      await load()
+    } catch (reason) {
+      setCreateError(toAppError(reason))
+    } finally {
+      setCreating(false)
     }
   }
   const issue = data?.issues.find((item) => item.number === selectedIssue)
@@ -140,7 +171,7 @@ export function RepositoryPage({
           <p className="mt-4 flex min-h-4 items-center gap-2 text-xs text-muted-foreground">
             {data ? (
               <>
-                <GitBranch className="size-3.5" />
+                <BranchIcon className="size-3.5" />
                 {data.branch}
                 <span>· {data.info.isPrivate ? 'Private' : 'Public'}</span>
               </>
@@ -154,14 +185,14 @@ export function RepositoryPage({
             variant="ghost"
             size="icon"
             aria-label="Refresh repository"
-            disabled={loading || merging || !path}
+            disabled={loading || merging || creating || !path}
             onClick={() => void load()}
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             variant="outline"
-            disabled={!isTauri() || choosing || merging}
+            disabled={!isTauri() || choosing || merging || creating}
             onClick={() => void chooseRepository()}
           >
             <FolderOpen className="size-4" />
@@ -175,7 +206,7 @@ export function RepositoryPage({
             key={item}
             variant={view === item ? 'secondary' : 'ghost'}
             aria-current={view === item ? 'page' : undefined}
-            disabled={merging}
+            disabled={merging || creating}
             onClick={() => setView(item)}
           >
             {item}
@@ -271,15 +302,105 @@ export function RepositoryPage({
                 <p className="mt-2 text-sm text-muted-foreground">
                   {data.branch} → {data.info.defaultBranchRef?.name ?? 'No default branch'}
                 </p>
-                <div className="mt-4">
-                  <GitHubPanel
-                    key={path}
-                    path={path!}
-                    inline
-                    disabled={chat.activity !== 'idle'}
-                    onMergingChange={setMerging}
-                  />
-                </div>
+                <details className="mt-4 rounded-xl border border-border bg-background">
+                  <summary className="cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                    Branch pull request
+                  </summary>
+                  <div className="border-t border-border p-4">
+                    <GitHubPanel
+                      key={path}
+                      path={path!}
+                      inline
+                      disabled={chat.activity !== 'idle'}
+                      onMergingChange={(value) => {
+                        setMerging(value)
+                        if (!value) void load()
+                      }}
+                    />
+                  </div>
+                </details>
+                {data.branch !== data.info.defaultBranchRef?.name && (
+                  <details className="mt-3 rounded-xl border border-border bg-background">
+                    <summary className="cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                      Commits ahead of {data.info.defaultBranchRef?.name} ({data.commits.length}
+                      {data.commits.length === 30 ? '+' : ''})
+                    </summary>
+                    <div className="border-t border-border p-4">
+                      {data.commits.length ? (
+                        <ul className="space-y-2 text-sm">
+                          {data.commits.map((commit) => (
+                            <li key={commit.sha} className="flex gap-3 break-words">
+                              <code className="shrink-0 text-muted-foreground">{commit.sha}</code>
+                              <span>{commit.title}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No commits ahead of the default branch. Fetch origin if this looks
+                          outdated.
+                        </p>
+                      )}
+                      {data.commits.length > 0 &&
+                        !data.pullRequests.some((pr) => pr.headRefName === data.branch) && (
+                          <details className="mt-5 rounded-lg border border-border">
+                            <summary className="cursor-pointer p-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                              Create pull request from this branch
+                            </summary>
+                            <form
+                              className="space-y-3 border-t border-border p-4"
+                              onSubmit={(event) => {
+                                event.preventDefault()
+                                void createPullRequest()
+                              }}
+                            >
+                              <p className="text-xs text-muted-foreground">
+                                {data.branch} → {data.info.defaultBranchRef?.name}. All published
+                                commits on this branch will be included.
+                              </p>
+                              <label className="block text-sm">
+                                Title
+                                <input
+                                  required
+                                  maxLength={256}
+                                  value={prTitle}
+                                  onChange={(event) => setPrTitle(event.target.value)}
+                                  className="mt-1 w-full rounded-md border border-border bg-background p-2"
+                                  placeholder={data.commits[0].title}
+                                />
+                              </label>
+                              <label className="block text-sm">
+                                Description
+                                <textarea
+                                  value={prBody}
+                                  maxLength={65536}
+                                  onChange={(event) => setPrBody(event.target.value)}
+                                  rows={4}
+                                  className="mt-1 w-full rounded-md border border-border bg-background p-2"
+                                />
+                              </label>
+                              {!data.published && (
+                                <p className="text-xs text-muted-foreground">
+                                  Push this branch to origin, then refresh to create a pull request.
+                                </p>
+                              )}
+                              {createError && (
+                                <p role="alert" className="text-sm text-destructive">
+                                  {createError.message}
+                                </p>
+                              )}
+                              <Button
+                                type="submit"
+                                disabled={!data.published || creating || merging}
+                              >
+                                {creating ? 'Creating…' : 'Create pull request'}
+                              </Button>
+                            </form>
+                          </details>
+                        )}
+                    </div>
+                  </details>
+                )}
               </section>
             </>
           )}

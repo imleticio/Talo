@@ -18,11 +18,12 @@ pub struct ExternalSession {
     pub external_id: String,
 }
 
-const MIGRATIONS: [&str; 4] = [
+const MIGRATIONS: [&str; 5] = [
     include_str!("migrations/001_core.sql"),
     include_str!("migrations/002_external_sessions.sql"),
     include_str!("migrations/003_message_streaming_order.sql"),
     include_str!("migrations/004_conversation_model.sql"),
+    include_str!("migrations/005_conversation_branch.sql"),
 ];
 
 #[derive(Clone)]
@@ -210,6 +211,16 @@ impl Database {
         project_id: Option<&str>,
         title: &str,
     ) -> AppResult<Conversation> {
+        self.create_conversation_with_repository(project_id, title, None, None)
+    }
+
+    pub fn create_conversation_with_repository(
+        &self,
+        project_id: Option<&str>,
+        title: &str,
+        repository_path: Option<&str>,
+        branch: Option<&str>,
+    ) -> AppResult<Conversation> {
         let now = timestamp();
         let conversation = Conversation {
             id: Uuid::new_v4().to_string(),
@@ -219,16 +230,21 @@ impl Database {
             updated_at: now,
             last_provider_id: None,
             last_model_id: None,
+            repository_path: repository_path.map(str::to_owned),
+            branch: branch.map(str::to_owned),
+            agent_id: None,
         };
         self.connect()?
             .execute(
-                "INSERT INTO conversations (id, project_id, title, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO conversations (id, project_id, title, created_at, updated_at, repository_path, branch) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     conversation.id,
                     conversation.project_id,
                     conversation.title,
                     conversation.created_at,
-                    conversation.updated_at
+                    conversation.updated_at,
+                    conversation.repository_path,
+                    conversation.branch
                 ],
             )
             .map_err(sql_error)?;
@@ -238,7 +254,7 @@ impl Database {
     pub fn list_conversations(&self, project_id: Option<&str>) -> AppResult<Vec<Conversation>> {
         let connection = self.connect()?;
         let mut statement = connection.prepare(
-            "SELECT * FROM conversations WHERE (?1 IS NULL OR project_id = ?1) ORDER BY created_at, id"
+            "SELECT conversations.*, (SELECT provider FROM external_sessions WHERE conversation_id = conversations.id ORDER BY created_at DESC, id DESC LIMIT 1) AS agent_id FROM conversations WHERE (?1 IS NULL OR project_id = ?1) ORDER BY created_at, id"
         ).map_err(sql_error)?;
         statement
             .query_map([project_id], conversation_row)
@@ -250,7 +266,7 @@ impl Database {
     pub fn get_conversation(&self, id: &str) -> AppResult<Conversation> {
         self.connect()?
             .query_row(
-                "SELECT * FROM conversations WHERE id = ?1",
+                "SELECT conversations.*, (SELECT provider FROM external_sessions WHERE conversation_id = conversations.id ORDER BY created_at DESC, id DESC LIMIT 1) AS agent_id FROM conversations WHERE id = ?1",
                 [id],
                 conversation_row,
             )
@@ -458,6 +474,9 @@ fn conversation_row(row: &Row<'_>) -> rusqlite::Result<Conversation> {
         updated_at: row.get(4)?,
         last_provider_id: row.get(5)?,
         last_model_id: row.get(6)?,
+        repository_path: row.get(7)?,
+        branch: row.get(8)?,
+        agent_id: row.get("agent_id")?,
     })
 }
 

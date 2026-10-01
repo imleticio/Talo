@@ -4,9 +4,9 @@ use std::process::Command;
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Repository {
-    path: String,
-    branch: Option<String>,
-    revision: String,
+    pub(crate) path: String,
+    pub(crate) branch: Option<String>,
+    pub(crate) revision: String,
     branches: Vec<String>,
 }
 

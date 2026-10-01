@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open as openDirectory } from '@tauri-apps/plugin-dialog'
-import { Check, ChevronDown, FolderOpen, GitBranch, LoaderCircle } from 'lucide-react'
+import { Check, ChevronDown, FolderOpen, LoaderCircle } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
+import { BranchIcon } from '@/components/ui/branch-icon'
 import { GitHubPanel } from './github-panel'
 
 type Repository = { path: string; branch: string | null; revision: string; branches: string[] }
@@ -110,7 +111,7 @@ export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
       : 'Select repository'
 
   return (
-    <div className="mb-2 flex items-center justify-between gap-4">
+    <div className="chat-repository-toolbar mb-2 flex items-center justify-between gap-4 px-4">
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger asChild>
           <Button
@@ -119,12 +120,12 @@ export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
             disabled={!supported || disabled || busy}
             aria-label={`Git branch: ${label}`}
             title={repository?.path ?? 'Choose a local Git repository'}
-            className="branch-picker-trigger h-8 max-w-full min-w-0 gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
+            className="branch-picker-trigger h-8 max-w-full min-w-0 gap-2 rounded-lg px-0 text-sm text-muted-foreground hover:text-foreground"
           >
             {busy ? (
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <GitBranch className="size-4 shrink-0" aria-hidden="true" />
+              <BranchIcon className="size-4 shrink-0" />
             )}
             <span className="truncate font-medium">{label}</span>
             <ChevronDown className="branch-picker-chevron size-3.5 shrink-0" aria-hidden="true" />
@@ -173,7 +174,7 @@ export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
                         onClick={() => switchBranch(branch)}
                         className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-accent disabled:opacity-50"
                       >
-                        <GitBranch
+                        <BranchIcon
                           className="size-4 shrink-0 text-muted-foreground"
                           aria-hidden="true"
                         />

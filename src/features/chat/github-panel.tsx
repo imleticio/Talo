@@ -207,6 +207,7 @@ export function GitHubPanel({
   }
 
   const pr = data?.pullRequest
+  const repositoryName = path.split(/[/\\]/).filter(Boolean).at(-1) ?? 'Repository'
   return (
     <Popover.Root open={inline || open} onOpenChange={changeOpen}>
       {!inline && (
@@ -215,12 +216,12 @@ export function GitHubPanel({
             type="button"
             variant="ghost"
             disabled={disabled || merging}
-            aria-label="GitHub pull request"
-            title="GitHub pull request"
-            className="h-8 shrink-0 gap-2 rounded-lg px-2 text-muted-foreground hover:text-foreground"
+            aria-label={`GitHub pull request: ${repositoryName}`}
+            title={path}
+            className="h-8 min-w-0 shrink gap-2 rounded-lg px-2 text-muted-foreground hover:text-foreground"
           >
             <GitHubMark />
-            <span className="text-xs">GitHub</span>
+            <span className="max-w-40 truncate text-xs font-medium">{repositoryName}</span>
           </Button>
         </Popover.Trigger>
       )}

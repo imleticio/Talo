@@ -156,13 +156,7 @@ function TerminalSession({
   )
 }
 
-export function TerminalPanel({
-  connection,
-  workspace,
-}: {
-  connection: string
-  workspace: RefObject<HTMLDivElement | null>
-}) {
+export function TerminalPanel({ workspace }: { workspace: RefObject<HTMLDivElement | null> }) {
   const [open, setOpen] = useState(false)
   const [started, setStarted] = useState(false)
   const [height, setHeight] = useState(280)
@@ -275,14 +269,7 @@ export function TerminalPanel({
           </div>
         </div>
       </div>
-      <footer className="flex h-7 items-center justify-between px-2 text-[11px] text-muted-foreground">
-        <span title={`OpenCode · ${connection}`} className="flex items-center gap-2">
-          <span
-            className={`size-1.5 rounded-full ${connection === 'ready' ? 'bg-emerald-400' : 'bg-muted-foreground/60'}`}
-            aria-hidden="true"
-          />
-          opencode
-        </span>
+      <footer className="flex h-7 items-center justify-end px-2 text-[11px] text-muted-foreground">
         <button
           ref={trigger}
           type="button"

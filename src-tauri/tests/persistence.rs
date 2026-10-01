@@ -8,6 +8,79 @@ use talo_lib::services::persistence as service;
 use tempfile::tempdir;
 
 #[test]
+fn conversation_agent_comes_from_its_linked_service_not_model_provider() {
+    let dir = tempdir().unwrap();
+    let db = Database::initialize(dir.path()).unwrap();
+    let first = db.create_conversation(None, "OpenCode chat").unwrap();
+    let second = db.create_conversation(None, "Other service").unwrap();
+    assert!(db.get_conversation(&first.id).unwrap().agent_id.is_none());
+    db.link_session(&first.id, "opencode", "session-one")
+        .unwrap();
+    db.link_session(&second.id, "codex", "session-two").unwrap();
+    db.set_conversation_model(&first.id, Some(&("anthropic".into(), "claude".into())))
+        .unwrap();
+    drop(db);
+    let db = Database::initialize(dir.path()).unwrap();
+    assert_eq!(
+        db.get_conversation(&first.id).unwrap().agent_id.as_deref(),
+        Some("opencode")
+    );
+    let chats = db.list_conversations(None).unwrap();
+    assert_eq!(
+        chats
+            .iter()
+            .find(|chat| chat.id == second.id)
+            .unwrap()
+            .agent_id
+            .as_deref(),
+        Some("codex")
+    );
+}
+
+#[test]
+fn conversation_branch_survives_restart_and_repository_changes() {
+    let dir = tempdir().unwrap();
+    let db = Database::initialize(dir.path()).unwrap();
+    let first = service::create_conversation_with_repository(
+        &db,
+        None,
+        "First".into(),
+        Some("/repo"),
+        Some("feat/sidebar"),
+    )
+    .unwrap();
+    service::create_conversation_with_repository(
+        &db,
+        None,
+        "Second".into(),
+        Some("/repo"),
+        Some("main"),
+    )
+    .unwrap();
+    let legacy = service::create_conversation(&db, None, "No repository".into()).unwrap();
+    drop(db);
+    let db = Database::initialize(dir.path()).unwrap();
+    let saved = service::get_conversation(&db, first.id.clone()).unwrap();
+    assert_eq!(saved.branch.as_deref(), Some("feat/sidebar"));
+    assert_eq!(saved.repository_path.as_deref(), Some("/repo"));
+    let listed = service::list_conversations(&db, None).unwrap();
+    assert_eq!(
+        listed
+            .iter()
+            .find(|item| item.id == first.id)
+            .unwrap()
+            .branch,
+        saved.branch
+    );
+    assert!(
+        service::get_conversation(&db, legacy.id)
+            .unwrap()
+            .branch
+            .is_none()
+    );
+}
+
+#[test]
 fn migrates_empty_database_and_reopens_without_resetting_records() {
     let dir = tempdir().unwrap();
     let db = Database::initialize(dir.path()).unwrap();
@@ -38,7 +111,7 @@ fn migrates_empty_database_and_reopens_without_resetting_records() {
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        4
+        5
     );
     assert_eq!(service::get_project(&db, project.id).unwrap().name, "Home");
     assert_eq!(service::list_conversations(&db, None).unwrap().len(), 1);
@@ -76,7 +149,7 @@ fn upgrades_v1_without_removing_existing_data() {
         connection
             .query_row("PRAGMA user_version", [], |row| row.get::<_, u32>(0))
             .unwrap(),
-        4
+        5
     );
     assert_eq!(
         connection

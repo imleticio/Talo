@@ -10,6 +10,7 @@ type PendingSend = {
 
 type EmptyLayout = {
   composer: DOMRect
+  borderRadius: string
   welcome: HTMLElement
   welcomeBounds: DOMRect
 }
@@ -122,6 +123,7 @@ export function useChatViewTransition({
     const measure = () => {
       emptyLayout.current = {
         composer: composer.getBoundingClientRect(),
+        borderRadius: getComputedStyle(composer).borderRadius,
         welcome,
         welcomeBounds: welcome.getBoundingClientRect(),
       }
@@ -168,6 +170,7 @@ export function useChatViewTransition({
       return
 
     const destination = composer.getBoundingClientRect()
+    const destinationStyle = getComputedStyle(composer)
     const ghost = source.welcome.cloneNode(true) as HTMLElement
     ghost.setAttribute('aria-hidden', 'true')
     ghost.inert = true
@@ -187,8 +190,14 @@ export function useChatViewTransition({
       [
         {
           transform: `translate(${source.composer.left - destination.left}px, ${source.composer.top - destination.top}px)`,
+          width: `${source.composer.width}px`,
+          borderRadius: source.borderRadius,
         },
-        { transform: 'none' },
+        {
+          transform: 'none',
+          width: `${destination.width}px`,
+          borderRadius: destinationStyle.borderRadius,
+        },
       ],
       { duration: 680, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
     )
@@ -243,8 +252,14 @@ export function useChatViewTransition({
     )
     if (!bubble) return
     pending.started = true
+    // Hide before the next paint, while autoscroll settles the destination.
+    // Otherwise the real bubble flashes before its flying copy takes over.
+    const opacity = bubble.style.opacity
+    bubble.style.opacity = '0'
     const frame = requestAnimationFrame(() => {
       if (pendingSend.current !== pending || !bubble.isConnected) return
+      // Keep the departing text attached to the composer's visible position,
+      // including its first-send movement while the message is being created.
       const source =
         composerRef.current?.querySelector('textarea')?.getBoundingClientRect() ?? pending.source
       const bounds = bubble.getBoundingClientRect()
@@ -258,7 +273,6 @@ export function useChatViewTransition({
       let animation: Animation
       let follow = 0
       const material: Animation[] = []
-      const opacity = bubble.style.opacity
       const destination = () => {
         const rect = bubble.getBoundingClientRect()
         // The transcript still has an entrance translation on first send.
@@ -276,6 +290,8 @@ export function useChatViewTransition({
         const surface = getComputedStyle(bubble)
         const target = destination()
         Object.assign(ghost.style, {
+          // The real bubble is hidden before cloning; its flight must remain visible.
+          opacity,
           position: 'fixed',
           left: `${target.left}px`,
           top: `${target.top}px`,
@@ -376,6 +392,7 @@ export function useChatViewTransition({
         follow = requestAnimationFrame(track)
       } else {
         // Large messages retain their complete real layout and readable text.
+        bubble.style.opacity = opacity
         animation = bubble.animate(
           [
             { opacity: 0, transform: 'translateY(8px)' },
@@ -399,6 +416,7 @@ export function useChatViewTransition({
     })
     const cancelFrame = () => {
       cancelAnimationFrame(frame)
+      bubble.style.opacity = opacity
       if (sendEffect.current === cancelFrame) sendEffect.current = null
     }
     sendEffect.current = cancelFrame

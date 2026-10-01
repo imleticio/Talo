@@ -27,10 +27,36 @@ export type AgentModelChoice = {
   variant: string | null
 }
 
+export type AgentTask = {
+  id: string
+  label: string
+  state: 'pending' | 'active' | 'completed' | 'cancelled' | 'failed'
+}
+
+export type AgentAction =
+  'read' | 'search' | 'edit' | 'write' | 'create' | 'delete' | 'command' | 'tool'
+export type AgentTool = {
+  id: string
+  name: string
+  state: 'pending' | 'running' | 'completed' | 'error'
+  action: AgentAction
+  title: string
+  path: string | null
+  command: string | null
+  output: string | null
+  exitCode: number | null
+  files: string[]
+}
+
 export type AgentEvent =
   | { type: 'started' | 'completed' | 'cancelled' }
   | { type: 'delta'; text: string }
-  | { type: 'tool'; name: string; state: string }
+  | ({ type: 'tool' } & AgentTool)
+  | { type: 'tasks'; tasks: AgentTask[] }
+  | { type: 'status'; text: string }
+  | { type: 'attention'; id: string; title: string; detail: string | null }
+  | { type: 'attention_resolved'; id: string }
+  | { type: 'files_changed'; files: string[] }
   | { type: 'error'; message: string }
 
 export type AgentUpdate = { conversationId: string; messageId: string; event: AgentEvent }

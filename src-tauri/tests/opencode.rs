@@ -79,6 +79,13 @@ async fn prompt(State(state): State<Arc<Mock>>, Json(body): Json<Value>) -> Stat
     }
     let events = [
         json!({"type":"message.updated","properties":{"info":info}}),
+        json!({"type":"todo.updated","properties":{"sessionID":"ses_mock","todos":[{"content":"Inspect chat","status":"in_progress","priority":"high"}]}}),
+        json!({"type":"message.part.updated","properties":{"part":{"id":"tool-part","sessionID":"ses_mock","messageID":"msg_mock","type":"tool","callID":"read-call","tool":"read","state":{"status":"running","input":{"filePath":"src/chat.ts"}}}}}),
+        json!({"type":"message.part.updated","properties":{"part":{"id":"tool-part","sessionID":"ses_mock","messageID":"msg_mock","type":"tool","callID":"read-call","tool":"read","state":{"status":"completed","input":{"filePath":"src/chat.ts"},"output":"file contents"}}}}),
+        json!({"type":"permission.asked","properties":{"sessionID":"ses_mock","id":"permission","permission":"edit"}}),
+        json!({"type":"permission.replied","properties":{"sessionID":"ses_mock","requestID":"permission","reply":"once"}}),
+        json!({"type":"todo.updated","properties":{"sessionID":"other_session","todos":[{"content":"Wrong task","status":"pending"}]}}),
+        json!({"type":"message.part.updated","properties":{"part":{"id":"wrong-part","sessionID":"ses_mock","messageID":"user","type":"tool","tool":"read","state":{"status":"running","input":{"filePath":"wrong.ts"}}}}}),
         json!({"type":"message.part.delta","properties":{"sessionID":"ses_mock","messageID":"msg_mock","partID":"part_1","field":"text","delta":"Hello"}}),
         json!({"type":"message.part.updated","properties":{"part":{"id":"part_1","sessionID":"ses_mock","messageID":"msg_mock","type":"text","text":"Hello world"}}}),
         json!({"type":"message.updated","properties":{"info":info}}),
@@ -175,12 +182,60 @@ async fn sends_streaming_reply_and_recovers_external_session_after_restart() {
             .kind,
         "constraint"
     );
+    let notifications = std::sync::Mutex::new(Vec::new());
     let result = service
-        .send(conversation.id.clone(), "hello".into(), None, |_| {})
+        .send(conversation.id.clone(), "hello".into(), None, |update| {
+            notifications.lock().unwrap().push(update);
+        })
         .await
         .unwrap();
     assert_eq!(result.content, "Hello world");
     assert_eq!(result.status, MessageStatus::Completed);
+    let notifications = notifications.lock().unwrap();
+    assert!(
+        notifications
+            .iter()
+            .all(|update| update.conversation_id == conversation.id
+                && update.message_id == result.id)
+    );
+    let tools: Vec<_> = notifications
+        .iter()
+        .filter_map(|update| {
+            if let AgentEvent::Tool {
+                id, path, state, ..
+            } = &update.event
+            {
+                Some((id.as_str(), path.as_deref(), state.as_str()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        tools,
+        [
+            ("read-call", Some("src/chat.ts"), "running"),
+            ("read-call", Some("src/chat.ts"), "completed")
+        ]
+    );
+    assert_eq!(
+        notifications
+            .iter()
+            .filter(|update| matches!(update.event, AgentEvent::Tasks { .. }))
+            .count(),
+        1
+    );
+    assert!(notifications.iter().any(
+        |update| matches!(&update.event, AgentEvent::Attention { id, .. } if id == "permission")
+    ));
+    assert!(notifications.iter().any(
+        |update| matches!(&update.event, AgentEvent::AttentionResolved { id } if id == "permission")
+    ));
+    assert!(matches!(
+        notifications.last().unwrap().event,
+        AgentEvent::Completed
+    ));
+    drop(notifications);
     let messages = persistence::list_messages(&db, conversation.id.clone()).unwrap();
     assert_eq!(messages.len(), 2);
     assert_eq!(messages[0].content, "hello");

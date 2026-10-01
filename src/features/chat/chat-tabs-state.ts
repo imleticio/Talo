@@ -1,4 +1,5 @@
 import type { Conversation, Message } from '@/services/persistence'
+import type { AgentActivityState } from './agent-activity'
 
 export type ChatActivity = 'idle' | 'connecting' | 'sending' | 'cancelling'
 export type LiveReply = { messageId: string; text: string; tool: string | null }
@@ -10,6 +11,7 @@ export type ChatTab = {
   draft: string
   messages: Message[]
   live: LiveReply | null
+  turnActivity: Record<string, AgentActivityState>
   activity: ChatActivity
   loadingHistory: boolean
   historyLoaded: boolean
@@ -28,6 +30,7 @@ export function createChatTab(conversation?: Conversation): ChatTab {
     draft: '',
     messages: [],
     live: null,
+    turnActivity: {},
     activity: 'idle',
     loadingHistory: false,
     historyLoaded: !conversation,

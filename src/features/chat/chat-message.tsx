@@ -1,7 +1,10 @@
 import { isValidElement, memo } from 'react'
 import Markdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
+import type { AgentActivityState } from './agent-activity'
+import { AgentPulse } from './agent-pulse'
 
 const markdownComponents: Components = {
   a: ({ href, children }) => (
@@ -9,7 +12,7 @@ const markdownComponents: Components = {
       {children}
     </a>
   ),
-  img: ({ alt }) => <span className="chat-image-description">{alt || 'Image'}</span>,
+  img: ({ alt }) => <span>{alt || 'Image'}</span>,
   pre: ({ children }) => {
     const language = isValidElement<{ className?: string }>(children)
       ? children.props.className?.replace(/^language-/, '')
@@ -22,57 +25,65 @@ const markdownComponents: Components = {
     )
   },
 }
+const markdownPlugins = [remarkGfm]
 
-export const ChatMessage = memo(function ChatMessage({ message, live }: { message: Message; live: ChatConversation['live'] }) {
+export const ChatMessage = memo(function ChatMessage({
+  message,
+  live,
+  pulse,
+  cancelling = false,
+  onExpandedChange,
+}: {
+  message: Message
+  live: ChatConversation['live']
+  pulse?: AgentActivityState
+  cancelling?: boolean
+  onExpandedChange: (expanded: boolean) => void
+}) {
+  const isAssistant = message.role === 'assistant'
   const streaming = live?.messageId === message.id
   const content = streaming && live ? live.text || message.content : message.content
   const status = streaming ? 'streaming' : message.status
 
-  if (message.role !== 'assistant') {
-    return (
-      <li className={`chat-message chat-message-${message.role}`} data-message-id={message.id}>
-        <div className={message.role === 'user' ? 'chat-user-bubble' : 'chat-notice'}>
-          <p className="chat-message-text">{content}</p>
-        </div>
-      </li>
-    )
-  }
-
   return (
-    <li className="chat-message chat-message-assistant" data-message-id={message.id}>
-      <article className="chat-assistant-surface" aria-label="Talo response" aria-busy={streaming}>
-        <header className="chat-response-header">
-          <img src="/talo-logo.png" alt="" className="chat-response-mark" />
-          <span>Talo</span>
-        </header>
-        {content ? (
+    <li className={`flex shrink-0 ${isAssistant ? 'justify-start' : 'justify-end'}`}>
+      <div
+        data-message-id={message.id}
+        data-message-role={message.role}
+        className={
+          isAssistant
+            ? 'chat-assistant-message w-full min-w-0 text-sm leading-6 text-foreground'
+            : 'chat-user-message max-w-[90%] min-w-0 rounded-2xl px-3 py-2 text-sm leading-6 sm:max-w-[80%]'
+        }
+      >
+        {isAssistant && pulse && (
+          <AgentPulse
+            state={pulse}
+            cancelling={streaming && cancelling}
+            onExpandedChange={onExpandedChange}
+          />
+        )}
+        {isAssistant ? (
           <div className="chat-prose">
-            <Markdown skipHtml components={markdownComponents}>
+            <Markdown skipHtml remarkPlugins={markdownPlugins} components={markdownComponents}>
               {content}
             </Markdown>
           </div>
-        ) : status === 'streaming' ? (
-          <p className="chat-thinking" role="status">
-            <span className="chat-thinking-light" aria-hidden="true" />
-            Thinking…
-          </p>
         ) : (
-          <p className="chat-response-status">No response was returned.</p>
+          <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
         )}
-        {(status !== 'completed' || (streaming && live?.tool)) && (
-          <p className="chat-response-status" role="status">
-            {streaming && live?.tool
-              ? `Using ${live.tool}`
-              : status === 'streaming'
-                ? content
-                  ? 'Responding…'
-                  : null
-                : status === 'failed'
-                  ? 'Response failed'
-                  : 'Response interrupted'}
+        {isAssistant && !pulse && status !== 'completed' && (
+          <p role="status" className="mt-2 text-xs text-muted-foreground">
+            {status === 'streaming'
+              ? cancelling
+                ? 'Stopping…'
+                : 'Responding…'
+              : status === 'failed'
+                ? 'Failed'
+                : 'Interrupted'}
           </p>
         )}
-      </article>
+      </div>
     </li>
   )
 })

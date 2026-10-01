@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { groupChatPanel, removePanelFromGroups } from './chat-panels-state'
+import { createAgentActivity, reduceAgentActivity } from './agent-activity'
+import { applyChatAgentUpdate } from './chat-agent-update'
 import {
   onAgentUpdate,
   opencodeCancel,
@@ -44,6 +46,7 @@ type TabRuntime = {
   unboundId: string | null
   sync: number
   history: number
+  modelName?: string
 }
 
 function savedWorkspace(conversations: Conversation[]) {
@@ -364,43 +367,14 @@ export function useChatConversation() {
       if (update.event.type === 'started') {
         if (!runtime.busy) return
         runtime.runId = update.messageId
-        patchTab(tab.id, { live: { messageId: update.messageId, text: '', tool: null } })
+        patchTab(tab.id, (current) => applyChatAgentUpdate(current, update, runtime.modelName))
         void syncMessages(tab.id, update.conversationId).catch((reason) =>
           patchTab(tab.id, { error: errorMessage(reason) }),
         )
         return
       }
       if (update.messageId !== runtime.runId) return
-      switch (update.event.type) {
-        case 'delta': {
-          const text = update.event.text
-          patchTab(tab.id, (current) => ({
-            live:
-              current.live?.messageId === update.messageId
-                ? { ...current.live, text: current.live.text + text }
-                : current.live,
-          }))
-          break
-        }
-        case 'tool': {
-          const tool = `${update.event.name} · ${update.event.state}`
-          patchTab(tab.id, (current) => ({
-            live:
-              current.live?.messageId === update.messageId
-                ? { ...current.live, tool }
-                : current.live,
-          }))
-          break
-        }
-        case 'error':
-          patchTab(tab.id, { error: update.event.message })
-          break
-        case 'completed':
-          break
-        case 'cancelled':
-          patchTab(tab.id, { error: null })
-          break
-      }
+      patchTab(tab.id, (current) => applyChatAgentUpdate(current, update))
     })
       .then((unlisten) => {
         if (mounted) {
@@ -511,6 +485,13 @@ export function useChatConversation() {
     )
       return
     runtime.busy = true
+    runtime.modelName = selectedModel
+      ? (models.find(
+          (model) =>
+            model.providerId === selectedModel.providerId &&
+            model.modelId === selectedModel.modelId,
+        )?.name ?? selectedModel.modelId)
+      : info?.name
     patchTab(tab.id, { activity: 'connecting', error: null })
     let id = tab.conversationId
     let submitted = false
@@ -549,6 +530,20 @@ export function useChatConversation() {
       await opencodeSendMessage(id, text, selectedModel)
     } catch (reason) {
       const failure: AppError = toAppError(reason)
+      if (runtime.runId) {
+        const messageId = runtime.runId
+        patchTab(tab.id, (current) => ({
+          turnActivity: {
+            ...current.turnActivity,
+            [messageId]: reduceAgentActivity(
+              current.turnActivity[messageId] ?? createAgentActivity(),
+              failure.kind === 'cancelled'
+                ? { type: 'cancelled' }
+                : { type: 'error', message: errorMessage(failure) },
+            ),
+          },
+        }))
+      }
       if (failure.kind !== 'cancelled') {
         patchTab(tab.id, { error: errorMessage(failure) })
         if (failure.kind === 'not_installed') setConnection('not_installed')
@@ -605,6 +600,13 @@ export function useChatConversation() {
   }
 
   return {
+    setActivityExpanded: (tabId: string, messageId: string, expanded: boolean) =>
+      patchTab(tabId, (tab) => {
+        const state = tab.turnActivity[messageId]
+        return state
+          ? { turnActivity: { ...tab.turnActivity, [messageId]: { ...state, expanded } } }
+          : {}
+      }),
     connection,
     connectionError,
     info,
@@ -636,6 +638,7 @@ export function useChatConversation() {
     activeTabId: workspace.activeTabId,
     activeId,
     messages: activeTab.messages,
+    turnActivity: activeTab.turnActivity,
     live: activeTab.live,
     activity: activeTab.activity,
     loadingHistory: activeTab.loadingHistory,

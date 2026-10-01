@@ -2,49 +2,13 @@ import { useLayoutEffect, useRef } from 'react'
 import { ArrowUp, LoaderCircle, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
 import { BranchPicker } from './branch-picker'
 import { ReasoningPicker } from './reasoning-picker'
 import { ChatWelcome } from './chat-welcome'
-import { ChatThinking } from './chat-thinking'
+import { ChatMessage } from './chat-message'
 import { useChatViewTransition } from './use-chat-view-transition'
-
-function ChatMessage({ message, chat }: { message: Message; chat: ChatConversation }) {
-  const isAssistant = message.role === 'assistant'
-  const streaming = chat.live?.messageId === message.id
-  const content = streaming && chat.live ? chat.live.text || message.content : message.content
-  const status = streaming ? 'streaming' : message.status
-
-  return (
-    <li className={`flex shrink-0 ${isAssistant ? 'justify-start' : 'justify-end'}`}>
-      <div
-        data-message-id={message.id}
-        data-message-role={message.role}
-        className={
-          isAssistant
-            ? 'chat-assistant-message w-full min-w-0 text-sm leading-6 text-foreground'
-            : 'chat-user-message max-w-[90%] min-w-0 rounded-2xl px-3 py-2 text-sm leading-6 sm:max-w-[80%]'
-        }
-      >
-        <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
-        {isAssistant && (status !== 'completed' || (streaming && chat.live?.tool)) && (
-          <p role="status" className="mt-2 text-xs text-muted-foreground">
-            {streaming && chat.live?.tool ? `Tool: ${chat.live.tool} · ` : ''}
-            {status === 'streaming'
-              ? chat.activity === 'cancelling'
-                ? 'Deteniendo…'
-                : 'Responding…'
-              : status === 'failed'
-                ? 'Failed'
-                : 'Interrupted'}
-          </p>
-        )}
-      </div>
-    </li>
-  )
-}
 
 export function ChatPage({ chat }: { chat: ChatConversation }) {
   const scrollViewport = useRef<HTMLDivElement>(null)
@@ -148,22 +112,37 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           <ol
             ref={transcriptRef}
             aria-label="Conversation"
-            aria-live="polite"
             className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-6 pt-3 pb-6"
           >
             {messages.map((message) =>
               waiting &&
               message.id === chat.live?.messageId &&
-              message.role === 'assistant' ? null : (
-                <ChatMessage key={message.id} message={message} chat={chat} />
+              message.role === 'assistant' &&
+              !chat.turnActivity[message.id] ? null : (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  live={chat.live?.messageId === message.id ? chat.live : null}
+                  pulse={chat.turnActivity[message.id]}
+                  cancelling={chat.activity === 'cancelling'}
+                  onExpandedChange={(expanded) =>
+                    chat.setActivityExpanded(chat.activeTabId, message.id, expanded)
+                  }
+                />
               ),
             )}
-            {waiting && (
-              <ChatThinking
+            {waiting && (!chat.live || !chat.turnActivity[chat.live.messageId]) && (
+              <li
                 key="chat-pending-response"
-                cancelling={chat.activity === 'cancelling'}
-                tool={chat.live?.tool ?? null}
-              />
+                className="text-xs text-muted-foreground"
+                role="status"
+              >
+                {chat.activity === 'connecting'
+                  ? 'Connecting to agent…'
+                  : chat.activity === 'cancelling'
+                    ? 'Stopping…'
+                    : 'Sending request…'}
+              </li>
             )}
           </ol>
         </div>

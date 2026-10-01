@@ -321,8 +321,23 @@ impl AgentService {
                         });
                     }
                 }
-                AgentEvent::Tool { .. }
-                    if assistant_id.as_deref() == next.message_id.as_deref() =>
+                AgentEvent::Tool { .. } | AgentEvent::FilesChanged { .. }
+                    if assistant_id.is_some()
+                        && assistant_id.as_deref() == next.message_id.as_deref() =>
+                {
+                    emit(AgentNotification {
+                        conversation_id: session.conversation_id.clone(),
+                        message_id: draft.id.clone(),
+                        event: next.event,
+                    })
+                }
+                AgentEvent::Tasks { .. }
+                | AgentEvent::Status { .. }
+                | AgentEvent::Attention { .. }
+                | AgentEvent::AttentionResolved { .. }
+                    if next.message_id.is_none()
+                        || (assistant_id.is_some()
+                            && assistant_id.as_deref() == next.message_id.as_deref()) =>
                 {
                     emit(AgentNotification {
                         conversation_id: session.conversation_id.clone(),

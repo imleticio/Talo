@@ -63,6 +63,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --warning: oklch(0.58 0.13 75);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -99,6 +100,7 @@
   --accent: oklch(0.26 0.009 255);
   --accent-foreground: oklch(0.94 0.006 255);
   --destructive: oklch(0.704 0.191 22.216);
+  --warning: oklch(0.8 0.13 75);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 13%);
   --ring: oklch(0.72 0.008 255);
@@ -126,6 +128,300 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+.agent-pulse {
+  min-width: 0;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
+
+.pulse-work-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.pulse-work-time {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.pulse-working {
+  background: linear-gradient(
+    105deg,
+    var(--muted-foreground) 35%,
+    color-mix(in oklch, var(--foreground) 75%, var(--muted-foreground)) 50%,
+    var(--muted-foreground) 65%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: pulse-shimmer 4.5s ease-in-out infinite;
+}
+
+.pulse-mark-active {
+  animation: pulse-breathe 3s ease-in-out infinite;
+}
+
+@keyframes pulse-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes pulse-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.chat-prose {
+  overflow-wrap: anywhere;
+}
+
+.chat-prose > :first-child {
+  margin-top: 0;
+}
+.chat-prose > :last-child {
+  margin-bottom: 0;
+}
+.chat-prose p,
+.chat-prose ul,
+.chat-prose ol,
+.chat-prose blockquote,
+.chat-prose table,
+.chat-code-block {
+  margin-block: 0.75rem;
+}
+.chat-prose h1,
+.chat-prose h2,
+.chat-prose h3,
+.chat-prose h4,
+.chat-prose h5,
+.chat-prose h6 {
+  margin-block: 1.25rem 0.5rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.chat-prose h1 {
+  font-size: 1.25rem;
+}
+.chat-prose h2 {
+  font-size: 1.125rem;
+}
+.chat-prose ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.chat-prose ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.chat-prose li > p {
+  margin-block: 0.25rem;
+}
+.chat-prose a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.chat-prose blockquote {
+  padding-left: 1rem;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+}
+.chat-prose :not(pre) > code {
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  background: color-mix(in oklch, var(--foreground) 6%, transparent);
+  font-size: 0.85em;
+}
+.chat-code-block {
+  overflow: hidden;
+  min-width: 0;
+  border-radius: 0.75rem;
+  background: color-mix(in oklch, var(--foreground) 5%, transparent);
+}
+.chat-code-label {
+  padding: 0.4rem 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+}
+.chat-code-block pre {
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.75rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.chat-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.chat-prose th,
+.chat-prose td {
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.chat-prose hr {
+  margin-block: 1rem;
+  border-color: var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-working,
+  .pulse-mark-active {
+    animation: none;
+  }
+  .pulse-working {
+    background: none;
+    color: var(--muted-foreground);
+  }
+}
+
+.pulse-current-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+.pulse-mark {
+  margin-top: 0.3rem;
+  color: var(--muted-foreground);
+  transition:
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.agent-pulse[data-phase='waiting'] .pulse-mark {
+  color: var(--warning);
+}
+
+.agent-pulse[data-phase='failed'] .pulse-mark {
+  color: var(--destructive);
+}
+
+.pulse-current,
+.pulse-details {
+  animation: pulse-reveal 180ms ease-out;
+}
+
+.pulse-current > .pulse-file {
+  display: flex;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.pulse-current .pulse-directory {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pulse-current .pulse-filename {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pulse-file {
+  overflow-wrap: anywhere;
+}
+
+.pulse-directory,
+.pulse-summary,
+.pulse-progress,
+.pulse-current-detail {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.pulse-current-detail {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pulse-progress {
+  margin-top: 0.25rem;
+  line-height: 1.5;
+}
+
+.pulse-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0.5rem 0 0 0.4rem;
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-left: 1px solid color-mix(in oklch, var(--border) 65%, transparent);
+}
+
+.pulse-action {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.pulse-command {
+  display: block;
+  padding: 0.25rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--muted-foreground);
+}
+
+.pulse-output {
+  max-height: 16rem;
+  overflow: auto;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--muted) 35%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+@keyframes pulse-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-current,
+  .pulse-details {
+    animation: none;
+  }
+  .pulse-mark {
+    transition: none;
   }
 }
 
@@ -243,6 +539,24 @@
   scrollbar-gutter: stable both-edges;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 48px),
+    rgb(0 0 0 / 80%) calc(100% - 32px),
+    rgb(0 0 0 / 35%) calc(100% - 16px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 48px),
+    rgb(0 0 0 / 80%) calc(100% - 32px),
+    rgb(0 0 0 / 35%) calc(100% - 16px),
+    transparent
+  );
+}
+
+.chat-scroll-viewport .chat-transcript {
+  padding-bottom: 48px;
 }
 
 .chat-scroll-viewport::-webkit-scrollbar {

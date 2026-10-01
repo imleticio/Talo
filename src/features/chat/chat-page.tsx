@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Message } from '@/services/persistence'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
+import { BranchPicker } from './branch-picker'
 import { ReasoningPicker } from './reasoning-picker'
 import { ChatWelcome } from './chat-welcome'
 import { ChatThinking } from './chat-thinking'
@@ -218,6 +219,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             )}
           </div>
         )}
+        <BranchPicker disabled={chat.tabs.some((tab) => tab.activity !== 'idle')} />
         <form
           ref={composerRef}
           onSubmit={submit}

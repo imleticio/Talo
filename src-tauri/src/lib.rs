@@ -50,6 +50,8 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_close,
             commands::get_app_info,
+            commands::git::git_repository,
+            commands::git::git_switch_branch,
             commands::chat_background::save_chat_background,
             commands::window_appearance::supports_window_translucency,
             commands::window_appearance::supports_window_background_blur,

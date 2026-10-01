@@ -52,7 +52,7 @@ export function RepositoryPage({
   const [path, setPath] = useState(savedPath)
   const [data, setData] = useState<RepositoryData | null>(null)
   const [error, setError] = useState<AppError | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(() => Boolean(savedPath()) && isTauri())
   const [choosing, setChoosing] = useState(false)
   const [merging, setMerging] = useState(false)
   const [view, setView] = useState<'Overview' | 'Pull requests' | 'Issues'>('Overview')
@@ -98,6 +98,7 @@ export function RepositoryPage({
       if (typeof next !== 'string') return
       request.current++
       setData(null)
+      setLoading(true)
       setSelectedPr(null)
       setSelectedIssue(null)
       setPath(next)
@@ -115,27 +116,38 @@ export function RepositoryPage({
   }
   const issue = data?.issues.find((item) => item.number === selectedIssue)
   return (
-    <div className="mx-auto w-full max-w-5xl p-6 sm:p-8">
+    <div className="repository-page mx-auto w-full max-w-5xl p-6 sm:p-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <GitFork className="size-4" />
             Repository
           </p>
           <h1 className="break-words text-2xl font-medium">
-            {data?.info.nameWithOwner ?? 'Your repository'}
+            {data?.info.nameWithOwner ??
+              (loading ? (
+                <span
+                  className="block h-8 w-56 max-w-full rounded-md bg-muted"
+                  aria-hidden="true"
+                />
+              ) : (
+                'Your repository'
+              ))}
           </h1>
           <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-            {data?.info.description ||
-              'Pull requests, issues, and the context for your next change.'}
+            Pull requests, issues, and the context for your next change.
           </p>
-          {data && (
-            <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-              <GitBranch className="size-3.5" />
-              {data.branch}
-              <span>· {data.info.isPrivate ? 'Private' : 'Public'}</span>
-            </p>
-          )}
+          <p className="mt-4 flex min-h-4 items-center gap-2 text-xs text-muted-foreground">
+            {data ? (
+              <>
+                <GitBranch className="size-3.5" />
+                {data.branch}
+                <span>· {data.info.isPrivate ? 'Private' : 'Public'}</span>
+              </>
+            ) : loading ? (
+              <span className="h-4 w-36 rounded bg-muted" aria-hidden="true" />
+            ) : null}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -181,9 +193,33 @@ export function RepositoryPage({
         </p>
       )}
       {loading && (
-        <p role="status" className="py-6 text-sm text-muted-foreground">
+        <p role="status" className="sr-only">
           Refreshing repository…
         </p>
+      )}
+      {loading && !data && (
+        <div className="mt-6" aria-hidden="true">
+          <div className="repository-metrics">
+            {[0, 1].map((item) => (
+              <div key={item} className="repository-metric">
+                <div className="size-5 shrink-0 rounded bg-muted" />
+                <div className="min-w-0">
+                  <div className="h-7 w-10 rounded bg-muted" />
+                  <div className="mt-1 h-5 w-28 max-w-full rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <section className="mt-8">
+            <h2 className="text-sm font-medium">Current branch</h2>
+            <div className="mt-2 h-5 w-44 rounded bg-muted" />
+            <div className="mt-4 min-h-64 rounded-xl border border-border bg-background p-6">
+              <div className="h-4 w-32 rounded bg-muted" />
+              <div className="mt-6 h-5 w-48 rounded bg-muted" />
+              <div className="mt-4 h-4 w-36 rounded bg-muted" />
+            </div>
+          </section>
+        </div>
       )}
       {error && (
         <div
@@ -202,7 +238,7 @@ export function RepositoryPage({
         <div className="mt-6">
           {view === 'Overview' && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="repository-metrics">
                 {(
                   [
                     {
@@ -216,15 +252,17 @@ export function RepositoryPage({
                   <button
                     key={item.label}
                     onClick={() => setView(item.label)}
-                    className="rounded-xl border border-border bg-background/40 p-6 text-left transition-colors hover:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring"
+                    className="repository-metric transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                   >
-                    <item.icon className="mb-4 size-5 text-muted-foreground" />
-                    <p className="text-2xl font-medium">
-                      {item.count === 100 ? '100+' : item.count}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Open {item.label.toLowerCase()}
-                    </p>
+                    <item.icon className="size-5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="text-xl font-medium tabular-nums">
+                        {item.count === 100 ? '100+' : item.count}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Open {item.label.toLowerCase()}
+                      </p>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -249,7 +287,7 @@ export function RepositoryPage({
             <div className="grid items-start gap-6 lg:grid-cols-2">
               <section
                 aria-label="Open pull requests"
-                className="divide-y divide-border rounded-xl border border-border bg-background/40"
+                className="divide-y divide-border rounded-xl border border-border bg-background"
               >
                 {!data.pullRequests.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open pull requests.</p>
@@ -289,7 +327,7 @@ export function RepositoryPage({
             <div className="grid items-start gap-6 lg:grid-cols-2">
               <section
                 aria-label="Open issues"
-                className="divide-y divide-border rounded-xl border border-border bg-background/40"
+                className="divide-y divide-border rounded-xl border border-border bg-background"
               >
                 {!data.issues.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open issues.</p>
@@ -315,7 +353,7 @@ export function RepositoryPage({
                 ))}
               </section>
               {issue && (
-                <section className="rounded-xl border border-border bg-background/40 p-6">
+                <section className="rounded-xl border border-border bg-background p-6">
                   <h2 className="text-base font-medium">{issue.title}</h2>
                   <p className="mt-4 max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-sm text-muted-foreground">
                     {issue.body || 'No description provided.'}

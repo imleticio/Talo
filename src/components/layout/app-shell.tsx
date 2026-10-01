@@ -402,6 +402,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
             ref={workspace}
             className="talo-body haze-pane flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-[0_12px_36px_rgba(0,0,0,0.08)]"
             data-has-haze={Boolean(imageUrl)}
+            data-section={section}
             data-session-empty={!chat.live && chat.messages.length === 0}
             data-background-scope={background.scope}
           >
@@ -413,6 +414,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                 aria-hidden="true"
               />
             ) : null}
+            <div className="repository-background" aria-hidden="true" />
             <main
               id={section === 'chat' ? `chat-panel-${chat.activeTabId}` : undefined}
               role={section === 'chat' ? 'tabpanel' : undefined}

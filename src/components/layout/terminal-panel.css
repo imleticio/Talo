@@ -6,6 +6,8 @@
 .talo-terminal-surface {
   position: relative;
   isolation: isolate;
+  /* Clip composited Haze layers to the same curve as the surface. */
+  clip-path: inset(0 round var(--radius-3xl, 1.375rem));
   border-top: 1px solid rgb(255 255 255 / 0.09);
   background: rgb(11 15 21 / 0.88);
   visibility: hidden;

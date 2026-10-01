@@ -7,7 +7,7 @@ use tokio::process::Command;
 use super::git::{git, recent_commits};
 use crate::errors::{AppError, AppResult};
 
-const PR_FIELDS: &str = "number,title,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,isCrossRepository";
+const PR_FIELDS: &str = "number,title,body,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,isCrossRepository";
 const ACTIVITY_PR_FIELDS: &str = "number,title,isDraft,headRefName,baseRefName,reviewDecision,state,createdAt,closedAt,mergedAt,mergeCommit,author,mergedBy";
 
 #[tauri::command]
@@ -37,6 +37,8 @@ pub async fn github_open_entity(path: String, kind: String, number: u64) -> AppR
 pub struct PullRequest {
     number: u64,
     title: String,
+    #[serde(default)]
+    body: String,
     state: String,
     is_draft: bool,
     base_ref_name: String,
@@ -307,7 +309,7 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 "--repo",
                 &repo,
                 "--state",
-                "open",
+                "all",
                 "--limit",
                 "100",
                 "--json",
@@ -322,7 +324,7 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 "--repo",
                 &repo,
                 "--state",
-                "open",
+                "all",
                 "--limit",
                 "100",
                 "--json",
@@ -629,6 +631,21 @@ mod tests {
             can_merge: true,
             merge_block_reason: None,
         }
+    }
+
+    #[test]
+    fn merged_pull_request_keeps_description_in_frontend_payload() {
+        let mut value = serde_json::to_value(ready().pull_request.unwrap()).unwrap();
+        value["state"] = serde_json::json!("MERGED");
+        value["body"] = serde_json::json!("## Why\nPreserve the completed work context.");
+        let pr = decode(value).unwrap();
+        assert!(matches_target(&pr, "main", Some(7)));
+        let payload = serde_json::to_value(pr).unwrap();
+        assert_eq!(payload["state"], "MERGED");
+        assert_eq!(
+            payload["body"],
+            "## Why\nPreserve the completed work context."
+        );
     }
 
     #[test]

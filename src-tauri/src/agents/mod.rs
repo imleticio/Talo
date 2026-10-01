@@ -23,11 +23,51 @@ pub struct AgentUpdate {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEvent {
     Started,
-    Delta { text: String },
-    Tool { name: String, state: String },
+    Delta {
+        text: String,
+    },
+    Tool {
+        id: String,
+        name: String,
+        state: String,
+        action: String,
+        title: String,
+        path: Option<String>,
+        command: Option<String>,
+        output: Option<String>,
+        #[serde(rename = "exitCode")]
+        exit_code: Option<i64>,
+        files: Vec<String>,
+    },
+    Tasks {
+        tasks: Vec<AgentTask>,
+    },
+    Status {
+        text: String,
+    },
+    Attention {
+        id: String,
+        title: String,
+        detail: Option<String>,
+    },
+    AttentionResolved {
+        id: String,
+    },
+    FilesChanged {
+        files: Vec<String>,
+    },
     Completed,
-    Error { message: String },
+    Error {
+        message: String,
+    },
     Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentTask {
+    pub id: String,
+    pub label: String,
+    pub state: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -73,6 +73,7 @@ export function ChatWorkspaceView({ chat }: { chat: ChatConversation }) {
           activeTabId: id,
           activeId: tab.conversationId,
           messages: tab.messages,
+          turnActivity: tab.turnActivity,
           live: tab.live,
           activity: tab.activity,
           draft: tab.draft,

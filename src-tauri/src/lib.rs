@@ -53,6 +53,7 @@ pub fn run() {
             commands::git::git_repository,
             commands::git::git_switch_branch,
             commands::github::github_pr_status,
+            commands::github::github_repository,
             commands::github::github_merge_pr,
             commands::chat_background::save_chat_background,
             commands::window_appearance::supports_window_translucency,

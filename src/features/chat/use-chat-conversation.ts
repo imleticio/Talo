@@ -611,6 +611,16 @@ export function useChatConversation() {
     selectTab,
     closeTab,
     newChat,
+    startIssueChat: (draft: string) => {
+      if (deletingRef.current) return
+      changeWorkspace((current) => {
+        const next = openChatTab(current)
+        return {
+          ...next,
+          tabs: next.tabs.map((tab) => (tab.id === next.activeTabId ? { ...tab, draft } : tab)),
+        }
+      })
+    },
     removeConversation,
   }
 }

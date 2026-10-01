@@ -36,6 +36,9 @@ For a browser-only UI preview, run `npm run dev` and open `http://localhost:5173
 
 See [project status](docs/status.md) for the full capability inventory and proposed next areas of work.
 
+See [GitHub integration](docs/github.md) to connect your account, view pull request
+checks and reviews, and merge a published PR from the chat.
+
 ## Develop and contribute
 
 | Document                                 | Start here when you want to...                                              |

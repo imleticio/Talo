@@ -4,6 +4,7 @@ import { open as openDirectory } from '@tauri-apps/plugin-dialog'
 import { Check, ChevronDown, FolderOpen, GitBranch, LoaderCircle } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
+import { GitHubPanel } from './github-panel'
 
 type Repository = { path: string; branch: string | null; revision: string; branches: string[] }
 const STORAGE_KEY = 'talo.git-repository'
@@ -16,7 +17,10 @@ function savedPath() {
   }
 }
 
-export function BranchPicker({ disabled }: { disabled: boolean }) {
+export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
+  const [githubBusy, setGithubBusy] = useState(false)
+  const githubLock = useRef(false)
+  const disabled = chatBusy || githubBusy
   const [path, setPath] = useState(savedPath)
   const [repository, setRepository] = useState<Repository | null>(null)
   const [busy, setBusy] = useState(false)
@@ -31,7 +35,7 @@ export function BranchPicker({ disabled }: { disabled: boolean }) {
     if (!path || !supported) return
     let cancelled = false
     const refresh = async () => {
-      if (locked.current) return
+      if (locked.current || githubLock.current) return
       const request = ++generation.current
       try {
         const next = await invoke<Repository>('git_repository', { path })
@@ -106,7 +110,7 @@ export function BranchPicker({ disabled }: { disabled: boolean }) {
       : 'Select repository'
 
   return (
-    <div className="mb-2 flex items-center">
+    <div className="mb-2 flex items-center justify-between gap-4">
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger asChild>
           <Button
@@ -115,7 +119,7 @@ export function BranchPicker({ disabled }: { disabled: boolean }) {
             disabled={!supported || disabled || busy}
             aria-label={`Git branch: ${label}`}
             title={repository?.path ?? 'Choose a local Git repository'}
-            className="branch-picker-trigger h-8 max-w-full gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
+            className="branch-picker-trigger h-8 max-w-full min-w-0 gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
           >
             {busy ? (
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
@@ -200,6 +204,17 @@ export function BranchPicker({ disabled }: { disabled: boolean }) {
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
+      {supported && repository && (
+        <GitHubPanel
+          key={`${repository.path}:${repository.branch}`}
+          path={repository.path}
+          disabled={chatBusy || busy}
+          onMergingChange={(merging) => {
+            githubLock.current = merging
+            setGithubBusy(merging)
+          }}
+        />
+      )}
     </div>
   )
 }

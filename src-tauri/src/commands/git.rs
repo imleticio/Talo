@@ -10,7 +10,7 @@ pub struct Repository {
     branches: Vec<String>,
 }
 
-fn git(path: &str, args: &[&str]) -> Result<String, String> {
+pub(super) fn git(path: &str, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(path)

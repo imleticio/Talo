@@ -240,7 +240,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             }}
             placeholder="Ask anything…"
             disabled={!canSend}
-            className="min-h-10 flex-1 resize-none border-0 bg-transparent p-0 text-base leading-relaxed shadow-none placeholder:text-muted-foreground/80 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-100 focus-visible:ring-0 md:text-base dark:bg-transparent dark:disabled:bg-transparent"
+            className="max-h-[min(12rem,25vh)] min-h-10 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-base leading-relaxed shadow-none placeholder:text-muted-foreground/80 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-100 focus-visible:ring-0 md:text-base dark:bg-transparent dark:disabled:bg-transparent"
           />
           <div className="flex items-end justify-between gap-2 pt-1 sm:gap-4">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">

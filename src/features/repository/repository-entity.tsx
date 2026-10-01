@@ -28,7 +28,7 @@ export function EntityState({ state, draft = false }: { state: string; draft?: b
     state === 'MERGED' ? 'Merged' : state === 'CLOSED' ? 'Closed' : draft ? 'Draft' : 'Open'
   const color =
     state === 'MERGED'
-      ? 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-purple-600 dark:text-purple-400'
       : state === 'CLOSED'
         ? 'text-rose-400'
         : state === 'OPEN' && !draft
@@ -67,13 +67,15 @@ export function EntityCategory({
             : GitPullRequest
   const color = draft
     ? 'text-muted-foreground'
-    : state === 'OPEN' || state === 'MERGED'
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : state === 'CLOSED'
-        ? kind === 'Issue'
-          ? 'text-purple-600 dark:text-purple-400'
-          : 'text-rose-600 dark:text-rose-400'
-        : 'text-muted-foreground'
+    : state === 'MERGED'
+      ? 'text-purple-600 dark:text-purple-400'
+      : state === 'OPEN'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : state === 'CLOSED'
+          ? kind === 'Issue'
+            ? 'text-purple-600 dark:text-purple-400'
+            : 'text-rose-600 dark:text-rose-400'
+          : 'text-muted-foreground'
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       <Icon className={`size-3.5 shrink-0 ${color}`} aria-hidden="true" />

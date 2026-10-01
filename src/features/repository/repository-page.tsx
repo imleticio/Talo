@@ -42,6 +42,31 @@ type RepositoryData = {
   }
 }
 const storageKey = 'talo.git-repository'
+
+const activityStyles = {
+  merge: { label: 'Merge', color: 'text-purple-700 dark:text-purple-300' },
+  fix: { label: 'Fix', color: 'text-amber-700 dark:text-amber-300' },
+  commit: { label: 'Commit', color: 'text-emerald-700 dark:text-emerald-300' },
+  pr: { label: 'PR', color: 'text-blue-700 dark:text-blue-300' },
+  unknown: { label: 'Activity', color: 'text-muted-foreground' },
+} as const
+
+function classifyActivity(message: string): keyof typeof activityStyles {
+  // A fix mentioning a merge is still a fix; an actual merge keeps its own type.
+  if (/^merge(?:d)?\b/i.test(message.trim())) return 'merge'
+  if (/\b(fix(?:es|ed)?|bug(?:fix)?|resolv(?:e|es|ed|ing)|conflicts?|hotfix)\b/i.test(message))
+    return 'fix'
+  if (/\bmerge(?:d)?\b/i.test(message)) return 'merge'
+  if (/\bpull[ -]requests?\b|\bpr\b|\(#\d+\)/i.test(message)) return 'pr'
+  if (
+    /\b(feat(?:ure)?|add(?:ed)?|implement(?:ed|ation)?|animation|design|refactor|chore|docs|test|style|perf|build|ci)\b|\w+\/\w+/i.test(
+      message,
+    )
+  )
+    return 'commit'
+  return 'unknown'
+}
+
 function savedPath() {
   try {
     return localStorage.getItem(storageKey)
@@ -442,37 +467,48 @@ export function RepositoryPage({
                   <p className="text-sm text-muted-foreground">No commits yet.</p>
                 ) : (
                   <ol className="repository-activity">
-                    {data.activity.commits.map((commit) => (
-                      <li key={commit.hash} className="relative pb-5 pl-6 last:pb-0">
-                        <span className="repository-commit-marker" aria-hidden="true" />
-                        <p className="max-w-prose break-words text-sm font-medium">
-                          {commit.message}
-                        </p>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                          <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
-                          {commit.author && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>{commit.author}</span>
-                            </>
-                          )}
-                          {commit.date && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <time
-                                dateTime={commit.date}
-                                title={new Date(commit.date).toLocaleString()}
-                              >
-                                {new Date(commit.date).toLocaleDateString(undefined, {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </time>
-                            </>
-                          )}
-                        </p>
-                      </li>
-                    ))}
+                    {data.activity.commits.map((commit) => {
+                      const activity = activityStyles[classifyActivity(commit.message)]
+                      return (
+                        <li key={commit.hash} className="relative pb-5 pl-6 last:pb-0">
+                          <span
+                            className={`repository-commit-marker ${activity.color}`}
+                            aria-hidden="true"
+                          />
+                          <p className="max-w-prose break-words text-sm font-medium">
+                            {commit.message}
+                            <span
+                              className={`ml-2 inline-block rounded px-1.5 py-0.5 align-middle text-[10px] leading-none font-normal ${activity.color}`}
+                            >
+                              {activity.label}
+                            </span>
+                          </p>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                            <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
+                            {commit.author && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span>{commit.author}</span>
+                              </>
+                            )}
+                            {commit.date && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <time
+                                  dateTime={commit.date}
+                                  title={new Date(commit.date).toLocaleString()}
+                                >
+                                  {new Date(commit.date).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </time>
+                              </>
+                            )}
+                          </p>
+                        </li>
+                      )
+                    })}
                   </ol>
                 )}
               </section>

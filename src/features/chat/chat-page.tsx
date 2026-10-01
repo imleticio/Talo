@@ -199,7 +199,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
                   variant="ghost"
                   size="sm"
                   disabled={chat.activity !== 'idle' || Boolean(chat.deletingId)}
-                  onClick={chat.newChat}
+                  onClick={() => chat.newChat()}
                 >
                   New chat
                 </Button>
@@ -225,11 +225,11 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           onSubmit={submit}
           className="chat-composer flex min-h-30 shrink-0 flex-col rounded-3xl border p-4"
         >
-          <label htmlFor="chat-message" className="sr-only">
+          <label htmlFor={`chat-message-${chat.activeTabId}`} className="sr-only">
             Message
           </label>
           <Textarea
-            id="chat-message"
+            id={`chat-message-${chat.activeTabId}`}
             value={chat.draft}
             onChange={(event) => chat.setDraft(event.target.value)}
             onKeyDown={(event) => {

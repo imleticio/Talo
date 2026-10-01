@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AppShell } from '@/components/layout/app-shell'
 import { AgentsPage } from '@/features/agents/agents-page'
-import { ChatPage } from '@/features/chat/chat-page'
+import { ChatWorkspaceView } from '@/features/chat/chat-workspace-view'
 import { useChatConversation } from '@/features/chat/use-chat-conversation'
 import { ProjectsPage } from '@/features/projects/projects-page'
 import { RepositoryPage } from '@/features/repository/repository-page'
@@ -18,7 +18,7 @@ function App() {
 
   return (
     <AppShell section={section} onNavigate={setSection} background={chatBackground} chat={chat}>
-      {section === 'chat' && <ChatPage key={chat.activeTabId} chat={chat} />}
+      {section === 'chat' && <ChatWorkspaceView chat={chat} />}
       {section === 'agents' && <AgentsPage />}
       {section === 'projects' && <ProjectsPage />}
       {section === 'repository' && (

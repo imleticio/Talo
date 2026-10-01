@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
+import { groupChatPanel, removePanelFromGroups } from './chat-panels-state'
 import {
   onAgentUpdate,
   opencodeCancel,
@@ -128,6 +129,8 @@ export function useChatConversation() {
   const [info, setInfo] = useState<AgentInfo | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [workspace, setWorkspace] = useState(createChatWorkspace)
+  const [panelGroups, setPanelGroups] = useState<string[][]>([])
+  const panelTabIds = panelGroups.find((group) => group.includes(workspace.activeTabId)) ?? []
   const [listenerReady, setListenerReady] = useState(false)
   const [listenerAttempt, setListenerAttempt] = useState(0)
   const [connectionError, setConnectionError] = useState<string | null>(null)
@@ -289,12 +292,25 @@ export function useChatConversation() {
     [changeWorkspace, loadTab],
   )
 
-  function openConversation(id: string) {
+  function openConversation(id: string, alongsideId?: string, side: 'left' | 'right' = 'right') {
     if (deletingRef.current) return
     const conversation = conversations.find((item) => item.id === id)
     if (!conversation) return
-    changeWorkspace((current) => openChatTab(current, conversation))
+    const next = openChatTab(workspaceRef.current, conversation)
+    if (alongsideId) {
+      setPanelGroups((current) =>
+        groupChatPanel(
+          current,
+          next.tabs.map((tab) => tab.id),
+          next.activeTabId,
+          alongsideId,
+          side,
+        ),
+      )
+    }
+    changeWorkspace(() => next)
     selectTab(workspaceRef.current.activeTabId)
+    return workspaceRef.current.activeTabId
   }
 
   useEffect(() => {
@@ -422,14 +438,27 @@ export function useChatConversation() {
     }
   }
 
-  async function retrySession() {
+  async function retrySession(tabId = workspaceRef.current.activeTabId) {
     if (deletingRef.current) return
-    await loadTab(workspaceRef.current.activeTabId)
+    await loadTab(tabId)
   }
 
-  function newChat() {
+  function newChat(alongsideId?: string, side: 'left' | 'right' = 'right') {
     if (deletingRef.current) return
-    changeWorkspace((current) => openChatTab(current))
+    const next = openChatTab(workspaceRef.current)
+    if (alongsideId) {
+      setPanelGroups((current) =>
+        groupChatPanel(
+          current,
+          next.tabs.map((tab) => tab.id),
+          next.activeTabId,
+          alongsideId,
+          side,
+        ),
+      )
+    }
+    changeWorkspace(() => next)
+    return workspaceRef.current.activeTabId
   }
 
   function closeTab(tabId: string) {
@@ -460,15 +489,15 @@ export function useChatConversation() {
   }
 
   function dismissTab(tabId: string) {
+    setPanelGroups((current) => removePanelFromGroups(current, tabId))
     changeWorkspace((current) => closeChatTab(current, tabId))
     runtimes.current.delete(tabId)
     selectTab(workspaceRef.current.activeTabId)
   }
 
-  async function send() {
-    const tab = workspaceRef.current.tabs.find(
-      (item) => item.id === workspaceRef.current.activeTabId,
-    )!
+  async function send(tabId = workspaceRef.current.activeTabId) {
+    const tab = workspaceRef.current.tabs.find((item) => item.id === tabId)
+    if (!tab) return
     const runtime = runtimeFor(tab.id)
     const text = tab.draft.trim()
     if (
@@ -560,10 +589,9 @@ export function useChatConversation() {
     }
   }
 
-  async function stop() {
-    const tab = workspaceRef.current.tabs.find(
-      (item) => item.id === workspaceRef.current.activeTabId,
-    )!
+  async function stop(tabId = workspaceRef.current.activeTabId) {
+    const tab = workspaceRef.current.tabs.find((item) => item.id === tabId)
+    if (!tab) return
     const runtime = runtimeFor(tab.id)
     const id = tab.conversationId
     if (!id || !runtime.busy || !runtime.runId || tab.activity === 'cancelling') return
@@ -578,9 +606,33 @@ export function useChatConversation() {
 
   return {
     connection,
+    connectionError,
     info,
     conversations,
     tabs: workspace.tabs,
+    panelTabIds,
+    panelGroups,
+    showPanel: (
+      tabId: string,
+      anchorId = workspaceRef.current.activeTabId,
+      side: 'left' | 'right' = 'right',
+    ) => {
+      if (deletingRef.current || !workspaceRef.current.tabs.some((tab) => tab.id === tabId)) return
+      setPanelGroups((current) => {
+        return groupChatPanel(
+          current,
+          workspaceRef.current.tabs.map((tab) => tab.id),
+          tabId,
+          anchorId,
+          side,
+        )
+      })
+      selectTab(tabId)
+    },
+    hidePanel: (tabId: string) => {
+      setPanelGroups((current) => removePanelFromGroups(current, tabId))
+    },
+    setTabDraft: (tabId: string, draft: string) => patchTab(tabId, { draft }),
     activeTabId: workspace.activeTabId,
     activeId,
     messages: activeTab.messages,

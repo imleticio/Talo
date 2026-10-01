@@ -198,12 +198,42 @@
   }
 }
 
-.talo-body > main:has(> .chat-page) {
+.talo-body > main:has(> .chat-page),
+.talo-body > main:has(> .chat-workspace) {
   overflow: hidden;
 }
 
 .chat-page {
   --chat-gutter: clamp(20px, 3vw, 32px);
+}
+
+.chat-panel {
+  container-type: inline-size;
+}
+
+.chat-dragging,
+.chat-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.chat-workspace[data-split='true'] .chat-welcome h1 {
+  font-size: clamp(1.5rem, 6cqw, 2.25rem);
+}
+
+/* Split panes share one surface treatment, regardless of which has messages. */
+.haze-pane[data-has-haze='true'] .chat-workspace[data-split='true'] .chat-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--background) 48%, transparent),
+    color-mix(in srgb, var(--background) 32%, transparent) 55%,
+    color-mix(in srgb, var(--background) 12%, transparent)
+  );
 }
 
 .chat-scroll-viewport {
@@ -1001,6 +1031,25 @@
 .dark .talo-chat-tab[data-active='true'] {
   background: linear-gradient(145deg, rgb(66 72 84 / 35%), rgb(24 27 34 / 60%));
   border-color: rgb(255 255 255 / 10%);
+}
+
+.talo-chat-tab-group .talo-chat-tab {
+  width: 9rem;
+  height: 24px;
+  border-radius: 10px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--sidebar-accent) 65%, transparent);
+  color: var(--sidebar-foreground);
+}
+
+.talo-chat-tab-group .talo-chat-tab[data-active='true'] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--sidebar-foreground) 10%, var(--sidebar-accent));
+}
+
+.talo-chat-tab-group[data-active='false'] .talo-chat-tab {
+  background: color-mix(in srgb, var(--sidebar-accent) 35%, transparent);
+  color: var(--muted-foreground);
 }
 
 @media (hover: hover) {

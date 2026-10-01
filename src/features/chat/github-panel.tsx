@@ -94,7 +94,9 @@ function PanelContent({
   ...props
 }: ComponentProps<typeof Popover.Content> & { inline: boolean }) {
   return inline ? (
-    <div className="rounded-xl border border-border bg-background/50 p-6">{props.children}</div>
+    <div className="min-h-64 rounded-xl border border-border bg-background p-6">
+      {props.children}
+    </div>
   ) : (
     <Popover.Content {...props} />
   )

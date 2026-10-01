@@ -414,6 +414,7 @@ export function AppShell({ section, onNavigate, background, chat, children }: Ap
                 aria-hidden="true"
               />
             ) : null}
+            <div className="repository-background" aria-hidden="true" />
             <main
               id={section === 'chat' ? `chat-panel-${chat.activeTabId}` : undefined}
               role={section === 'chat' ? 'tabpanel' : undefined}

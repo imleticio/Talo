@@ -168,7 +168,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           </ol>
         </div>
       )}
-      <div className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
+      <div key="composer" className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
         {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
         {!hasTranscript && chat.loadingHistory && (
           <p role="status" className="mb-8 text-center text-sm text-muted-foreground">

@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button'
 import { GitHubPanel } from '@/features/chat/github-panel'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import { toAppError, type AppError } from '@/services/errors'
+import type { ActivityPullRequest, GitWorkspace } from './repository-activity'
+import { RepositoryActivityFeed } from './repository-activity-feed'
+import { RepositoryChanges } from './repository-changes'
 
 type Issue = {
   number: number
@@ -35,6 +38,8 @@ type RepositoryData = {
   issues: Issue[]
   commits: { sha: string; title: string }[]
   published: boolean
+  activityPullRequests: ActivityPullRequest[]
+  activityError: string | null
   activity: {
     ahead: number | null
     commits: { hash: string; message: string; author: string; date: string }[]
@@ -42,30 +47,6 @@ type RepositoryData = {
   }
 }
 const storageKey = 'talo.git-repository'
-
-const activityStyles = {
-  merge: { label: 'Merge', color: 'text-purple-700 dark:text-purple-300' },
-  fix: { label: 'Fix', color: 'text-amber-700 dark:text-amber-300' },
-  commit: { label: 'Commit', color: 'text-emerald-700 dark:text-emerald-300' },
-  pr: { label: 'PR', color: 'text-blue-700 dark:text-blue-300' },
-  unknown: { label: 'Activity', color: 'text-muted-foreground' },
-} as const
-
-function classifyActivity(message: string): keyof typeof activityStyles {
-  // A fix mentioning a merge is still a fix; an actual merge keeps its own type.
-  if (/^merge(?:d)?\b/i.test(message.trim())) return 'merge'
-  if (/\b(fix(?:es|ed)?|bug(?:fix)?|resolv(?:e|es|ed|ing)|conflicts?|hotfix)\b/i.test(message))
-    return 'fix'
-  if (/\bmerge(?:d)?\b/i.test(message)) return 'merge'
-  if (/\bpull[ -]requests?\b|\bpr\b|\(#\d+\)/i.test(message)) return 'pr'
-  if (
-    /\b(feat(?:ure)?|add(?:ed)?|implement(?:ed|ation)?|animation|design|refactor|chore|docs|test|style|perf|build|ci)\b|\w+\/\w+/i.test(
-      message,
-    )
-  )
-    return 'commit'
-  return 'unknown'
-}
 
 function savedPath() {
   try {
@@ -93,11 +74,33 @@ export function RepositoryPage({
   const [createError, setCreateError] = useState<AppError | null>(null)
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
-  const [view, setView] = useState<'Overview' | 'Pull requests' | 'Issues'>('Overview')
+  const [workspace, setWorkspace] = useState<GitWorkspace | null>(null)
+  const [localError, setLocalError] = useState<AppError | null>(null)
+  const [localLoading, setLocalLoading] = useState(() => Boolean(savedPath()) && isTauri())
+  const [localBusy, setLocalBusy] = useState(false)
+  const [view, setView] = useState<'Overview' | 'Changes' | 'Pull requests' | 'Issues'>('Overview')
   const [selectedPr, setSelectedPr] = useState<number | null>(null)
   const [selectedIssue, setSelectedIssue] = useState<number | null>(null)
   const request = useRef(0)
-  const load = useCallback(async () => {
+  const localRequest = useRef(0)
+  const loadLocal = useCallback(async () => {
+    if (!path || !isTauri()) return
+    const id = ++localRequest.current
+    setLocalLoading(true)
+    setLocalError(null)
+    try {
+      const next = await invoke<GitWorkspace>('git_workspace', { path })
+      if (id === localRequest.current) setWorkspace(next)
+    } catch (reason) {
+      if (id === localRequest.current) {
+        setLocalError(toAppError(reason))
+        setWorkspace(null)
+      }
+    } finally {
+      if (id === localRequest.current) setLocalLoading(false)
+    }
+  }, [path])
+  const loadGithub = useCallback(async () => {
     if (!path || !isTauri()) return
     const id = ++request.current
     setLoading(true)
@@ -114,20 +117,25 @@ export function RepositoryPage({
       if (id === request.current) setLoading(false)
     }
   }, [path])
+  const load = useCallback(async () => {
+    await Promise.all([loadLocal(), loadGithub()])
+  }, [loadLocal, loadGithub])
   useEffect(() => {
     const generation = request
+    const localGeneration = localRequest
     const timer = window.setTimeout(() => void load(), 0)
     return () => {
       window.clearTimeout(timer)
       generation.current++
+      localGeneration.current++
     }
   }, [load])
   useEffect(() => {
-    if (merging) return
+    if (merging || localBusy || creatingPr) return
     const refresh = () => void load()
     window.addEventListener('focus', refresh)
     return () => window.removeEventListener('focus', refresh)
-  }, [load, merging])
+  }, [load, merging, localBusy, creatingPr])
 
   async function chooseRepository() {
     setChoosing(true)
@@ -135,7 +143,11 @@ export function RepositoryPage({
       const next = await open({ directory: true, multiple: false })
       if (typeof next !== 'string') return
       request.current++
+      localRequest.current++
       setData(null)
+      setWorkspace(null)
+      setLocalError(null)
+      setLocalLoading(true)
       setLoading(true)
       setSelectedPr(null)
       setSelectedIssue(null)
@@ -220,7 +232,7 @@ export function RepositoryPage({
             variant="ghost"
             size="icon"
             aria-label="Refresh repository"
-            disabled={loading || merging || creatingPr || !path}
+            disabled={loading || localLoading || merging || creatingPr || localBusy || !path}
             onClick={() => void load()}
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
@@ -228,7 +240,7 @@ export function RepositoryPage({
           <Button
             variant="ghost"
             className="h-8 px-2 text-xs text-muted-foreground"
-            disabled={!isTauri() || choosing || merging || creatingPr}
+            disabled={!isTauri() || choosing || merging || creatingPr || localBusy}
             onClick={() => void chooseRepository()}
           >
             <FolderOpen className="size-4" />
@@ -240,17 +252,17 @@ export function RepositoryPage({
         aria-label="Repository views"
         className="mt-6 flex gap-6 overflow-x-auto border-b border-border/60"
       >
-        {(['Overview', 'Pull requests', 'Issues'] as const).map((item) => (
+        {(['Overview', 'Changes', 'Pull requests', 'Issues'] as const).map((item) => (
           <button
             type="button"
             key={item}
             className={`flex shrink-0 items-center gap-2 border-b py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring ${view === item ? 'border-foreground/70 font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             aria-current={view === item ? 'page' : undefined}
-            disabled={merging || creatingPr}
+            disabled={merging || creatingPr || localBusy}
             onClick={() => setView(item)}
           >
             {item}
-            {data && item !== 'Overview' && (
+            {data && (item === 'Pull requests' || item === 'Issues') && (
               <span className="text-xs font-normal tabular-nums text-muted-foreground">
                 {(item === 'Issues' ? data.issues.length : data.pullRequests.length) === 100
                   ? '100+'
@@ -277,7 +289,7 @@ export function RepositoryPage({
           Refreshing repository…
         </p>
       )}
-      {loading && !data && (
+      {view !== 'Changes' && loading && !data && (
         <div className="mt-6" aria-hidden="true">
           <section>
             <h2 className="text-sm font-medium">Current branch</h2>
@@ -449,69 +461,6 @@ export function RepositoryPage({
                   </form>
                 )}
               </section>
-              <section
-                aria-labelledby="recent-activity-heading"
-                className="border-t border-border/60 pt-5"
-              >
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <h2 id="recent-activity-heading" className="text-sm font-medium">
-                    Recent activity
-                  </h2>
-                  <span className="text-xs text-muted-foreground">Latest commits</span>
-                </div>
-                {data.activity.error ? (
-                  <p className="text-sm text-muted-foreground">
-                    Commit history unavailable. Refresh to try again.
-                  </p>
-                ) : !data.activity.commits.length ? (
-                  <p className="text-sm text-muted-foreground">No commits yet.</p>
-                ) : (
-                  <ol className="repository-activity">
-                    {data.activity.commits.map((commit) => {
-                      const activity = activityStyles[classifyActivity(commit.message)]
-                      return (
-                        <li key={commit.hash} className="relative pb-5 pl-6 last:pb-0">
-                          <span
-                            className={`repository-commit-marker ${activity.color}`}
-                            aria-hidden="true"
-                          />
-                          <p className="max-w-prose break-words text-sm font-medium">
-                            {commit.message}
-                            <span
-                              className={`ml-2 inline-block rounded px-1.5 py-0.5 align-middle text-[10px] leading-none font-normal ${activity.color}`}
-                            >
-                              {activity.label}
-                            </span>
-                          </p>
-                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                            <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
-                            {commit.author && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span>{commit.author}</span>
-                              </>
-                            )}
-                            {commit.date && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <time
-                                  dateTime={commit.date}
-                                  title={new Date(commit.date).toLocaleString()}
-                                >
-                                  {new Date(commit.date).toLocaleDateString(undefined, {
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
-                                </time>
-                              </>
-                            )}
-                          </p>
-                        </li>
-                      )
-                    })}
-                  </ol>
-                )}
-              </section>
             </>
           )}
           {view === 'Pull requests' && (
@@ -609,6 +558,34 @@ export function RepositoryPage({
             <p className="mt-4 text-xs text-muted-foreground">Showing the first 100 open items.</p>
           )}
         </div>
+      )}
+      {path && isTauri() && view === 'Overview' && (
+        <RepositoryActivityFeed
+          workspace={workspace}
+          prs={data?.activityPullRequests ?? []}
+          loading={localLoading || loading}
+          localError={localError?.message ?? null}
+          githubError={error?.message ?? data?.activityError ?? null}
+        />
+      )}
+      {path && isTauri() && view === 'Changes' && (
+        <RepositoryChanges
+          key={path}
+          path={path}
+          workspace={workspace}
+          loading={localLoading}
+          error={localError?.message ?? null}
+          disabled={merging || creatingPr || chat.activity !== 'idle'}
+          onBusyChange={setLocalBusy}
+          onWorkspaceChange={(next) => {
+            localRequest.current++
+            setWorkspace(next)
+            setLocalError(null)
+            setLocalLoading(false)
+          }}
+          onCommitted={load}
+          onRefresh={loadLocal}
+        />
       )}
     </div>
   )

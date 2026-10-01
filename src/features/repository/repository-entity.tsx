@@ -1,6 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { ArrowRight, CircleDot, ExternalLink, GitPullRequest, MessageCircle } from 'lucide-react'
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleDot,
+  ExternalLink,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  MessageCircle,
+} from 'lucide-react'
 import { BranchIcon } from '@/components/ui/branch-icon'
 import { Button } from '@/components/ui/button'
 import { toAppError } from '@/services/errors'
@@ -18,7 +28,7 @@ export function EntityState({ state, draft = false }: { state: string; draft?: b
     state === 'MERGED' ? 'Merged' : state === 'CLOSED' ? 'Closed' : draft ? 'Draft' : 'Open'
   const color =
     state === 'MERGED'
-      ? 'text-purple-400'
+      ? 'text-emerald-600 dark:text-emerald-400'
       : state === 'CLOSED'
         ? 'text-rose-400'
         : state === 'OPEN' && !draft
@@ -35,16 +45,45 @@ export function EntityState({ state, draft = false }: { state: string; draft?: b
 export function EntityCategory({
   kind,
   number,
+  state,
+  draft = false,
 }: {
   kind: 'Issue' | 'Pull request'
   number?: number
+  state?: string
+  draft?: boolean
 }) {
-  const Icon = kind === 'Issue' ? CircleDot : GitPullRequest
+  const Icon =
+    kind === 'Issue'
+      ? state === 'CLOSED'
+        ? CircleCheck
+        : CircleDot
+      : state === 'MERGED'
+        ? GitMerge
+        : state === 'CLOSED'
+          ? GitPullRequestClosed
+          : draft
+            ? GitPullRequestDraft
+            : GitPullRequest
+  const color = draft
+    ? 'text-muted-foreground'
+    : state === 'OPEN' || state === 'MERGED'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : state === 'CLOSED'
+        ? kind === 'Issue'
+          ? 'text-purple-600 dark:text-purple-400'
+          : 'text-rose-600 dark:text-rose-400'
+        : 'text-muted-foreground'
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-      <Icon className="size-3.5" aria-hidden="true" />
+      <Icon className={`size-3.5 shrink-0 ${color}`} aria-hidden="true" />
       {kind}
       {number !== undefined && ` #${number}`}
+      {state && (
+        <span className="sr-only">
+          {state === 'MERGED' ? 'Merged' : state === 'CLOSED' ? 'Closed' : draft ? 'Draft' : 'Open'}
+        </span>
+      )}
     </span>
   )
 }
@@ -107,7 +146,7 @@ export function EntityHeader({
     <header>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
         <GitHubLogo />
-        <EntityCategory kind={kind} number={number} />
+        <EntityCategory kind={kind} number={number} state={state} draft={draft} />
         <EntityState state={state} draft={draft} />
         <span className="break-all">{repository}</span>
       </div>

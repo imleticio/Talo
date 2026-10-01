@@ -11,6 +11,8 @@ import { Check, Circle, GitMerge, GitPullRequest, LoaderCircle, RefreshCw, X } f
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { toAppError, type AppError } from '@/services/errors'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   EntityActions,
   EntityBranches,
@@ -28,6 +30,7 @@ type CheckStatus = {
 type PullRequest = {
   number: number
   title: string
+  body?: string
   state: string
   isDraft: boolean
   baseRefName: string
@@ -368,6 +371,27 @@ export function GitHubPanel({
                     {pr.headRefName} → {pr.baseRefName}
                   </p>
                 </>
+              )}
+              {inline && (
+                <section
+                  className="repository-entity-prose mb-6 border-b border-border/60 pb-6"
+                  aria-label="Pull request description"
+                >
+                  <Markdown
+                    skipHtml
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children }) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer">
+                          {children}
+                        </a>
+                      ),
+                      img: ({ alt }) => <span>{alt || 'Image'}</span>,
+                    }}
+                  >
+                    {pr.body || 'No description provided.'}
+                  </Markdown>
+                </section>
               )}
               {inline && <h3 className="mb-3 text-sm font-medium">Pull request status</h3>}
               <div

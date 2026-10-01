@@ -185,8 +185,12 @@ export function RepositoryPage({
     }
   }
   const issue = data?.issues.find((item) => item.number === selectedIssue) ?? data?.issues[0]
-  const activePr = selectedPr ?? data?.pullRequests[0]?.number
-  const branchPr = data?.pullRequests.find((item) => item.headRefName === data.branch)
+  const activePr = data?.pullRequests.some((item) => item.number === selectedPr)
+    ? selectedPr
+    : data?.pullRequests[0]?.number
+  const branchPr = data?.pullRequests.find(
+    (item) => item.headRefName === data.branch && item.state === 'OPEN',
+  )
   const repositoryName = data?.info.nameWithOwner.split('/')
 
   async function createPullRequest() {
@@ -488,7 +492,7 @@ export function RepositoryPage({
           )}
           {view === 'Pull requests' && (
             <div className="repository-entity-layout">
-              <section aria-label="Open pull requests" className="repository-entity-inbox">
+              <section aria-label="Pull requests" className="repository-entity-inbox">
                 <div className="repository-inbox-heading">
                   <span className="flex items-center gap-2 text-xs font-medium">
                     <GitHubLogo /> GitHub
@@ -498,7 +502,7 @@ export function RepositoryPage({
                   </span>
                 </div>
                 {!data.pullRequests.length && (
-                  <p className="p-6 text-sm text-muted-foreground">No open pull requests.</p>
+                  <p className="p-6 text-sm text-muted-foreground">No pull requests yet.</p>
                 )}
                 {data.pullRequests.map((pr) => (
                   <button
@@ -510,7 +514,12 @@ export function RepositoryPage({
                   >
                     <div className="flex items-center gap-2">
                       <GitHubLogo />
-                      <EntityCategory kind="Pull request" number={pr.number} />
+                      <EntityCategory
+                        kind="Pull request"
+                        number={pr.number}
+                        state={pr.state}
+                        draft={pr.isDraft}
+                      />
                       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                         <EntityTime date={pr.createdAt} />
                       </span>
@@ -558,7 +567,7 @@ export function RepositoryPage({
           )}
           {view === 'Issues' && (
             <div className="repository-entity-layout">
-              <section aria-label="Open issues" className="repository-entity-inbox">
+              <section aria-label="Issues" className="repository-entity-inbox">
                 <div className="repository-inbox-heading">
                   <span className="flex items-center gap-2 text-xs font-medium">
                     <GitHubLogo /> GitHub
@@ -568,7 +577,7 @@ export function RepositoryPage({
                   </span>
                 </div>
                 {!data.issues.length && (
-                  <p className="p-6 text-sm text-muted-foreground">No open issues.</p>
+                  <p className="p-6 text-sm text-muted-foreground">No issues yet.</p>
                 )}
                 {data.issues.map((item) => (
                   <button
@@ -579,7 +588,7 @@ export function RepositoryPage({
                   >
                     <div className="flex items-center gap-2">
                       <GitHubLogo />
-                      <EntityCategory kind="Issue" number={item.number} />
+                      <EntityCategory kind="Issue" number={item.number} state={item.state} />
                       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                         <EntityTime date={item.createdAt} />
                       </span>
@@ -657,7 +666,9 @@ export function RepositoryPage({
             : view === 'Pull requests'
               ? data.pullRequests.length
               : 0) === 100 && (
-            <p className="mt-4 text-xs text-muted-foreground">Showing the first 100 open items.</p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Showing the latest 100 items, including closed records.
+            </p>
           )}
         </div>
       )}

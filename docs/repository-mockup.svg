@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960" fill="none">
+  <title>Talo — Repository workspace redesign</title>
+  <desc>Full desktop window with an atmospheric sidebar, compact repository header, lightweight tabs, branch relationship and recent commit timeline. Illustrative repository data.</desc>
+  <defs>
+    <linearGradient id="desktop" x2="1440" y2="960" gradientUnits="userSpaceOnUse"><stop stop-color="#232933"/><stop offset=".5" stop-color="#10151e"/><stop offset="1" stop-color="#292737"/></linearGradient>
+    <linearGradient id="surface" x1="720" y1="48" x2="720" y2="912" gradientUnits="userSpaceOnUse"><stop stop-color="#1b2029"/><stop offset=".45" stop-color="#171b23"/><stop offset="1" stop-color="#141820"/></linearGradient>
+    <linearGradient id="sidebar" x1="48" y1="48" x2="300" y2="912" gradientUnits="userSpaceOnUse"><stop stop-color="#232831"/><stop offset=".55" stop-color="#1b2029"/><stop offset="1" stop-color="#20212c"/></linearGradient>
+    <linearGradient id="selection" x2="220" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#aeb5e3" stop-opacity=".13"/><stop offset="1" stop-color="#aeb5e3" stop-opacity=".04"/></linearGradient>
+    <linearGradient id="button" x2="0" y2="40"><stop stop-color="#c7ccf3"/><stop offset="1" stop-color="#adb5df"/></linearGradient>
+    <radialGradient id="ambient"><stop stop-color="#7772ac" stop-opacity=".15"/><stop offset="1" stop-color="#7772ac" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dy="24" stdDeviation="32" flood-opacity=".4"/></filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+    <clipPath id="window"><rect x="48" y="48" width="1344" height="864" rx="18"/></clipPath>
+    <g id="branch" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="4" cy="3" r="2"/><circle cx="4" cy="15" r="2"/><circle cx="13" cy="4" r="2"/><path d="M4 5v8m9-7c0 5-9 3-9 7"/></g>
+    <g id="chat" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 3h14v11H8l-5 3V3Z"/></g>
+    <g id="folder" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M2 5h6l2 2h8v10H2V5Z"/></g>
+    <g id="spark" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="m10 1 2.5 6.5L19 10l-6.5 2.5L10 19l-2.5-6.5L1 10l6.5-2.5L10 1Z"/></g>
+    <g id="arrow" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h12m-5-5 5 5-5 5"/></g>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; fill: #e8eaf1; font-size: 14px; }
+      .muted { fill: #a0a7b7; } .quiet { fill: #8992a4; } .small { font-size: 12px; } .label { font-size: 11px; letter-spacing: 1.7px; fill: #929bae; font-weight: 500; }
+      .mono { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; fill: #9ca5b9; }
+      .icon { color: #a0a7b7; } .line { stroke: #fff; stroke-opacity: .065; }
+    </style>
+  </defs>
+  <rect width="1440" height="960" fill="url(#desktop)"/>
+  <rect x="48" y="48" width="1344" height="864" rx="18" fill="url(#surface)" filter="url(#shadow)"/>
+  <g clip-path="url(#window)">
+    <rect x="48" y="48" width="252" height="864" fill="url(#sidebar)"/>
+    <ellipse cx="1050" cy="48" rx="530" ry="250" fill="url(#ambient)"/>
+    <path d="M300 48v864" class="line"/>
+    <!-- Native window chrome -->
+    <circle cx="76" cy="75" r="6" fill="#ed6b64"/><circle cx="96" cy="75" r="6" fill="#e9b951"/><circle cx="116" cy="75" r="6" fill="#61bf69"/>
+    <g stroke="#a0a7b7" stroke-width="1.4"><rect x="263" y="69" width="14" height="12" rx="2"/><path d="M268 69v12"/></g>
+    <text x="332" y="79" class="small muted">Workspace</text><text x="407" y="79" class="small quiet">/</text><text x="424" y="79" class="small">Repository</text>
+    <rect x="1219" y="63" width="140" height="26" rx="6" fill="#ffffff" fill-opacity=".035"/>
+    <text x="1231" y="80" class="small muted">Quick actions</text><text x="1330" y="80" class="small quiet">⌘ K</text>
+    <!-- Sidebar -->
+    <g transform="translate(76 117)" color="#d7daf0"><use href="#spark"/></g><text x="107" y="135" font-size="25" font-weight="600" letter-spacing="-.8">talo</text>
+    <text x="76" y="169" class="small quiet">Your space to build.</text>
+    <rect x="68" y="201" width="212" height="38" rx="8" fill="#ffffff" fill-opacity=".035"/>
+    <text x="83" y="225" class="muted">＋</text><text x="109" y="225">New chat</text><text x="244" y="225" class="small quiet">⌘ N</text>
+    <g transform="translate(82 265)" class="icon"><use href="#chat"/></g><text x="112" y="280" class="muted">Chat</text>
+    <rect x="68" y="295" width="212" height="40" rx="8" fill="url(#selection)"/>
+    <rect x="68" y="309" width="2" height="12" rx="1" fill="#b6bdea"/>
+    <g transform="translate(83 306)" color="#c2c9f0"><use href="#branch"/></g><text x="112" y="320" font-weight="500">Repository</text>
+    <g transform="translate(81 350)" class="icon"><use href="#spark"/></g><text x="112" y="365" class="muted">Agents</text>
+    <g transform="translate(82 395)" class="icon"><use href="#folder"/></g><text x="112" y="410" class="muted">Projects</text>
+    <text x="82" y="472" class="label">RECENT CHATS</text><text x="259" y="472" class="quiet">⌄</text>
+    <text x="83" y="511" class="quiet">◌</text><text x="107" y="511" class="small muted">Refine repository experience</text>
+    <text x="83" y="549" class="quiet">◌</text><text x="107" y="549" class="small muted">GitHub integration</text>
+    <text x="83" y="587" class="quiet">◌</text><text x="107" y="587" class="small muted">A quieter workspace</text>
+    <text x="83" y="625" class="quiet">◌</text><text x="107" y="625" class="small muted">Explore agent workflows</text>
+    <path d="M76 817h196" class="line"/>
+    <g transform="translate(82 839)" stroke="#a0a7b7" stroke-width="1.5"><path d="M0 3h18M0 9h18M0 15h18"/><circle cx="5" cy="3" r="2" fill="#20232d"/><circle cx="13" cy="9" r="2" fill="#20232d"/><circle cx="7" cy="15" r="2" fill="#20232d"/></g><text x="112" y="854" class="muted">Settings</text>
+    <circle cx="88" cy="888" r="11" fill="#40465a"/><text x="88" y="892" text-anchor="middle" font-size="9">L</text><text x="108" y="892" class="small muted">Leonel</text><text x="251" y="892" class="small quiet">⌄</text>
+    <!-- Compact repository heading -->
+    <text x="352" y="142" class="label">REPOSITORY</text>
+    <text x="352" y="181" font-size="28" letter-spacing="-.7"><tspan fill="#a5adbd" font-weight="400">imleticio</tspan><tspan fill="#697386"> / </tspan><tspan font-weight="600">Talo</tspan></text>
+    <g transform="translate(354 203)" class="icon"><use href="#branch"/></g><text x="379" y="217" class="small muted">feat/github</text>
+    <circle cx="474" cy="212" r="1.5" fill="#657085"/><text x="488" y="217" class="small muted">Public</text>
+    <circle cx="543" cy="212" r="1.5" fill="#657085"/><circle cx="561" cy="212" r="3" fill="#92baa9"/><text x="573" y="217" class="small muted">Synced just now</text>
+    <g transform="translate(1150 165)" stroke="#a5adbd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5a7 7 0 1 0 1 8M14 1v5H9"/></g>
+    <text x="1190" y="179" class="small muted">Open in GitHub</text><path d="M1289 168h7v7m0-7-8 8" stroke="#a5adbd" stroke-width="1.4"/>
+    <g fill="#a5adbd"><circle cx="1328" cy="174" r="1.6"/><circle cx="1334" cy="174" r="1.6"/><circle cx="1340" cy="174" r="1.6"/></g>
+    <!-- Integrated navigation -->
+    <text x="352" y="267" font-weight="500">Overview</text><text x="455" y="267" class="muted">Changes</text><text x="552" y="267" class="muted">Pull Requests</text>
+    <rect x="648" y="253" width="20" height="19" rx="5" fill="#ffffff" fill-opacity=".05"/><text x="658" y="267" text-anchor="middle" class="small muted">1</text>
+    <text x="702" y="267" class="muted">Issues</text><text x="750" y="267" class="small quiet">0</text>
+    <path d="M352 285h992" class="line"/><path d="M352 285h64" stroke="#b9c0e7" stroke-width="2"/>
+    <!-- Branch relationship: open composition, no surrounding card -->
+    <text x="352" y="329" class="label">CURRENT BRANCH</text>
+    <g transform="translate(354 352)" color="#b7c0eb"><use href="#branch"/></g><text x="380" y="368" font-size="20" font-weight="500" letter-spacing="-.3">feat/github</text>
+    <text x="352" y="395" class="muted"><tspan fill="#dce0ed">4 commits ahead</tspan> of main<tspan fill="#647085">  ·  </tspan>No conflicts</text>
+    <rect x="1154" y="348" width="190" height="40" rx="8" fill="url(#button)"/><rect x="1154.5" y="348.5" width="189" height="39" rx="7.5" stroke="#e0e5ff" stroke-opacity=".25"/>
+    <text x="1172" y="373" style="fill:#252b41;font-size:13px;font-weight:600">Create pull request</text><g transform="translate(1316 358)" color="#30374e"><use href="#arrow"/></g>
+    <path d="M372 459h778" stroke="#424c60" stroke-width="2"/>
+    <path d="M434 459c40 0 44-32 84-32h466" stroke="#a5aedf" stroke-width="2"/>
+    <path d="M518 427h466" stroke="#b8c1ff" stroke-width="7" opacity=".15" filter="url(#glow)"/>
+    <g fill="#1b202a" stroke-width="2"><circle cx="372" cy="459" r="5" stroke="#69768d"/><circle cx="434" cy="459" r="5" stroke="#69768d"/><circle cx="556" cy="427" r="5" stroke="#a5aedf"/><circle cx="674" cy="427" r="5" stroke="#a5aedf"/><circle cx="792" cy="427" r="5" stroke="#a5aedf"/><circle cx="910" cy="427" r="5" stroke="#c0c9ff"/></g>
+    <circle cx="910" cy="427" r="11" fill="#aab8ff" fill-opacity=".07"/><text x="1001" y="431" class="small" style="fill:#c1c9ed">feat/github</text><text x="1165" y="463" class="small muted">main</text>
+    <text x="352" y="491" class="small quiet">Changes are published and ready for review.</text>
+    <path d="M352 518h992" class="line"/>
+    <!-- Commit timeline -->
+    <text x="352" y="558" font-size="18" font-weight="500" letter-spacing="-.2">Recent activity</text><text x="1344" y="558" text-anchor="end" class="small muted">View all commits  ↗</text>
+    <text x="352" y="590" class="label">TODAY</text><text x="1344" y="590" text-anchor="end" class="small quiet">4 commits on feat/github</text>
+    <path d="M365 619v231" stroke="#3b4356" stroke-width="1.5"/>
+    <g fill="#191e27" stroke="#929cc3" stroke-width="1.6"><circle cx="365" cy="623" r="4"/><circle cx="365" cy="689" r="4"/><circle cx="365" cy="755" r="4"/><circle cx="365" cy="821" r="4"/></g>
+    <circle cx="365" cy="623" r="9" fill="#aab8ff" fill-opacity=".07"/>
+    <text x="392" y="628" font-weight="500">Bring pull requests into the workspace</text><text x="1260" y="628" text-anchor="end" class="small muted">12 min ago</text><text x="1338" y="628" text-anchor="end" class="quiet">↗</text>
+    <text x="392" y="650" class="mono">a8f32c1</text><text x="460" y="650" class="small quiet">·</text><circle cx="481" cy="646" r="8" fill="#424960"/><text x="481" y="649" text-anchor="middle" font-size="8">L</text><text x="496" y="650" class="small muted">imleticio</text><text x="569" y="650" class="small quiet">·</text><text x="584" y="650" class="small quiet">HEAD</text>
+    <path d="M392 668h952" class="line"/>
+    <text x="392" y="694">Add branch context and commit history</text><text x="1260" y="694" text-anchor="end" class="small muted">38 min ago</text><text x="1338" y="694" text-anchor="end" class="quiet">↗</text>
+    <text x="392" y="716" class="mono">7d91e04</text><text x="460" y="716" class="small quiet">·</text><circle cx="481" cy="712" r="8" fill="#424960"/><text x="481" y="715" text-anchor="middle" font-size="8">L</text><text x="496" y="716" class="small muted">imleticio</text>
+    <path d="M392 734h952" class="line"/>
+    <text x="392" y="760">Refine repository surfaces and navigation</text><text x="1260" y="760" text-anchor="end" class="small muted">1 hour ago</text><text x="1338" y="760" text-anchor="end" class="quiet">↗</text>
+    <text x="392" y="782" class="mono">c42b6f8</text><text x="460" y="782" class="small quiet">·</text><circle cx="481" cy="778" r="8" fill="#424960"/><text x="481" y="781" text-anchor="middle" font-size="8">L</text><text x="496" y="782" class="small muted">imleticio</text>
+    <path d="M392 800h952" class="line"/>
+    <text x="392" y="826">Connect GitHub repository actions</text><text x="1260" y="826" text-anchor="end" class="small muted">2 hours ago</text><text x="1338" y="826" text-anchor="end" class="quiet">↗</text>
+    <text x="392" y="848" class="mono">e16a9d2</text><text x="460" y="848" class="small quiet">·</text><circle cx="481" cy="844" r="8" fill="#424960"/><text x="481" y="847" text-anchor="middle" font-size="8">L</text><text x="496" y="848" class="small muted">imleticio</text>
+    <!-- Quiet workspace footer -->
+    <path d="M300 872h1092" class="line"/><circle cx="329" cy="893" r="3" fill="#92baa9"/><text x="342" y="897" class="small muted">Working tree clean</text><text x="529" y="897" class="small quiet">↑ 0  ↓ 0 with origin/feat/github</text><text x="1364" y="897" text-anchor="end" class="small quiet">Talo / Repository</text>
+  </g>
+  <rect x="48.5" y="48.5" width="1343" height="863" rx="17.5" stroke="#ffffff" stroke-opacity=".13"/>
+</svg>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke, isTauri } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { CircleDot, FolderOpen, GitFork, GitPullRequest, RefreshCw } from 'lucide-react'
+import { FolderOpen, GitPullRequest, RefreshCw } from 'lucide-react'
 import { BranchIcon } from '@/components/ui/branch-icon'
 import { Button } from '@/components/ui/button'
 import { GitHubPanel } from '@/features/chat/github-panel'
@@ -35,6 +35,11 @@ type RepositoryData = {
   issues: Issue[]
   commits: { sha: string; title: string }[]
   published: boolean
+  activity: {
+    ahead: number | null
+    commits: { hash: string; message: string; author: string; date: string }[]
+    error: string | null
+  }
 }
 const storageKey = 'talo.git-repository'
 function savedPath() {
@@ -58,7 +63,8 @@ export function RepositoryPage({
   const [loading, setLoading] = useState(() => Boolean(savedPath()) && isTauri())
   const [choosing, setChoosing] = useState(false)
   const [merging, setMerging] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [creatingPr, setCreatingPr] = useState(false)
+  const [showCreatePr, setShowCreatePr] = useState(false)
   const [createError, setCreateError] = useState<AppError | null>(null)
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
@@ -108,6 +114,7 @@ export function RepositoryPage({
       setLoading(true)
       setSelectedPr(null)
       setSelectedIssue(null)
+      setShowCreatePr(false)
       setCreateError(null)
       setPrTitle('')
       setPrBody('')
@@ -124,11 +131,15 @@ export function RepositoryPage({
       setChoosing(false)
     }
   }
+  const issue = data?.issues.find((item) => item.number === selectedIssue)
+  const branchPr = data?.pullRequests.find((item) => item.headRefName === data.branch)
+  const repositoryName = data?.info.nameWithOwner.split('/')
+
   async function createPullRequest() {
-    if (!path || creating) return
-    setCreating(true)
-    setCreateError(null)
+    if (!path) return
+    setCreatingPr(true)
     try {
+      setCreateError(null)
       const created = await invoke<{ number: number }>('github_create_pr', {
         path,
         title: prTitle,
@@ -136,44 +147,43 @@ export function RepositoryPage({
       })
       setPrTitle('')
       setPrBody('')
+      setShowCreatePr(false)
       setSelectedPr(created.number)
       setView('Pull requests')
       await load()
     } catch (reason) {
       setCreateError(toAppError(reason))
     } finally {
-      setCreating(false)
+      setCreatingPr(false)
     }
   }
-  const issue = data?.issues.find((item) => item.number === selectedIssue)
   return (
-    <div className="repository-page mx-auto w-full max-w-5xl p-6 sm:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="repository-page mx-auto w-full max-w-5xl px-6 py-6 sm:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <GitFork className="size-4" />
-            Repository
-          </p>
-          <h1 className="break-words text-2xl font-medium">
-            {data?.info.nameWithOwner ??
-              (loading ? (
-                <span
-                  className="block h-8 w-56 max-w-full rounded-md bg-muted"
-                  aria-hidden="true"
-                />
-              ) : (
-                'Your repository'
-              ))}
+          <h1 className="break-words text-lg font-medium tracking-tight">
+            {repositoryName ? (
+              <>
+                <span className="font-normal text-muted-foreground">
+                  {repositoryName[0]} <span className="mx-1 opacity-50">/</span>{' '}
+                </span>
+                {repositoryName[1]}
+              </>
+            ) : loading ? (
+              <span className="block h-6 w-56 max-w-full rounded-md bg-muted" aria-hidden="true" />
+            ) : (
+              'Your repository'
+            )}
           </h1>
-          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-            Pull requests, issues, and the context for your next change.
-          </p>
-          <p className="mt-4 flex min-h-4 items-center gap-2 text-xs text-muted-foreground">
+          <p className="mt-1 flex min-h-4 flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {data ? (
               <>
                 <BranchIcon className="size-3.5" />
                 {data.branch}
                 <span>· {data.info.isPrivate ? 'Private' : 'Public'}</span>
+                <span aria-live="polite">
+                  · {loading ? 'Syncing…' : error ? 'Sync failed' : 'Synced'}
+                </span>
               </>
             ) : loading ? (
               <span className="h-4 w-36 rounded bg-muted" aria-hidden="true" />
@@ -185,14 +195,15 @@ export function RepositoryPage({
             variant="ghost"
             size="icon"
             aria-label="Refresh repository"
-            disabled={loading || merging || creating || !path}
+            disabled={loading || merging || creatingPr || !path}
             onClick={() => void load()}
           >
             <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button
-            variant="outline"
-            disabled={!isTauri() || choosing || merging || creating}
+            variant="ghost"
+            className="h-8 px-2 text-xs text-muted-foreground"
+            disabled={!isTauri() || choosing || merging || creatingPr}
             onClick={() => void chooseRepository()}
           >
             <FolderOpen className="size-4" />
@@ -200,17 +211,30 @@ export function RepositoryPage({
           </Button>
         </div>
       </header>
-      <nav aria-label="Repository views" className="mt-8 flex gap-2 border-b border-border pb-3">
+      <nav
+        aria-label="Repository views"
+        className="mt-6 flex gap-6 overflow-x-auto border-b border-border/60"
+      >
         {(['Overview', 'Pull requests', 'Issues'] as const).map((item) => (
-          <Button
+          <button
+            type="button"
             key={item}
-            variant={view === item ? 'secondary' : 'ghost'}
+            className={`flex shrink-0 items-center gap-2 border-b py-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring ${view === item ? 'border-foreground/70 font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             aria-current={view === item ? 'page' : undefined}
-            disabled={merging || creating}
+            disabled={merging || creatingPr}
             onClick={() => setView(item)}
           >
             {item}
-          </Button>
+            {data && item !== 'Overview' && (
+              <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                {(item === 'Issues' ? data.issues.length : data.pullRequests.length) === 100
+                  ? '100+'
+                  : item === 'Issues'
+                    ? data.issues.length
+                    : data.pullRequests.length}
+              </span>
+            )}
+          </button>
         ))}
       </nav>
       {!isTauri() && (
@@ -230,24 +254,16 @@ export function RepositoryPage({
       )}
       {loading && !data && (
         <div className="mt-6" aria-hidden="true">
-          <div className="repository-metrics">
-            {[0, 1].map((item) => (
-              <div key={item} className="repository-metric">
-                <div className="size-5 shrink-0 rounded bg-muted" />
-                <div className="min-w-0">
-                  <div className="h-7 w-10 rounded bg-muted" />
-                  <div className="mt-1 h-5 w-28 max-w-full rounded bg-muted" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <section className="mt-8">
+          <section>
             <h2 className="text-sm font-medium">Current branch</h2>
             <div className="mt-2 h-5 w-44 rounded bg-muted" />
-            <div className="mt-4 min-h-64 rounded-xl border border-border bg-background p-6">
-              <div className="h-4 w-32 rounded bg-muted" />
-              <div className="mt-6 h-5 w-48 rounded bg-muted" />
-              <div className="mt-4 h-4 w-36 rounded bg-muted" />
+            <div className="mt-6 border-t border-border/60 pt-6">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="mb-6">
+                  <div className="h-4 w-48 rounded bg-muted" />
+                  <div className="mt-2 h-3 w-32 rounded bg-muted" />
+                </div>
+              ))}
             </div>
           </section>
         </div>
@@ -269,147 +285,202 @@ export function RepositoryPage({
         <div className="mt-6">
           {view === 'Overview' && (
             <>
-              <div className="repository-metrics">
-                {(
-                  [
-                    {
-                      label: 'Pull requests',
-                      count: data.pullRequests.length,
-                      icon: GitPullRequest,
-                    },
-                    { label: 'Issues', count: data.issues.length, icon: CircleDot },
-                  ] as const
-                ).map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => setView(item.label)}
-                    className="repository-metric transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <item.icon className="size-5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="text-xl font-medium tabular-nums">
-                        {item.count === 100 ? '100+' : item.count}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Open {item.label.toLowerCase()}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <section className="mt-8">
-                <h2 className="text-sm font-medium">Current branch</h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {data.branch} → {data.info.defaultBranchRef?.name ?? 'No default branch'}
-                </p>
-                <details className="mt-4 rounded-xl border border-border bg-background">
-                  <summary className="cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
-                    Branch pull request
-                  </summary>
-                  <div className="border-t border-border p-4">
-                    <GitHubPanel
-                      key={path}
-                      path={path!}
-                      inline
-                      disabled={chat.activity !== 'idle'}
-                      onMergingChange={(value) => {
-                        setMerging(value)
-                        if (!value) void load()
-                      }}
-                    />
+              <section aria-labelledby="current-branch-heading" className="pb-6">
+                <h2 id="current-branch-heading" className="text-xs text-muted-foreground">
+                  Current branch
+                </h2>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 text-base font-medium">
+                      <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="break-all">{data.branch}</span>
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {data.info.defaultBranchRef
+                        ? data.branch === data.info.defaultBranchRef.name
+                          ? 'You’re on the default branch'
+                          : data.activity.ahead === null
+                            ? `Comparison with ${data.info.defaultBranchRef.name} unavailable locally`
+                            : `${data.activity.ahead} ${data.activity.ahead === 1 ? 'commit' : 'commits'} ahead of ${data.info.defaultBranchRef.name}`
+                        : 'No default branch'}
+                    </p>
                   </div>
-                </details>
-                {data.branch !== data.info.defaultBranchRef?.name && (
-                  <details className="mt-3 rounded-xl border border-border bg-background">
-                    <summary className="cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
-                      Commits ahead of {data.info.defaultBranchRef?.name} ({data.commits.length}
-                      {data.commits.length === 30 ? '+' : ''})
-                    </summary>
-                    <div className="border-t border-border p-4">
-                      {data.commits.length ? (
-                        <ul className="space-y-2 text-sm">
-                          {data.commits.map((commit) => (
-                            <li key={commit.sha} className="flex gap-3 break-words">
-                              <code className="shrink-0 text-muted-foreground">{commit.sha}</code>
-                              <span>{commit.title}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No commits ahead of the default branch. Fetch origin if this looks
-                          outdated.
-                        </p>
-                      )}
-                      {data.commits.length > 0 &&
-                        !data.pullRequests.some((pr) => pr.headRefName === data.branch) && (
-                          <details className="mt-5 rounded-lg border border-border">
-                            <summary className="cursor-pointer p-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
-                              Create pull request from this branch
-                            </summary>
-                            <form
-                              className="space-y-3 border-t border-border p-4"
-                              onSubmit={(event) => {
-                                event.preventDefault()
-                                void createPullRequest()
-                              }}
-                            >
-                              <p className="text-xs text-muted-foreground">
-                                {data.branch} → {data.info.defaultBranchRef?.name}. All published
-                                commits on this branch will be included.
-                              </p>
-                              <label className="block text-sm">
-                                Title
-                                <input
-                                  required
-                                  maxLength={256}
-                                  value={prTitle}
-                                  onChange={(event) => setPrTitle(event.target.value)}
-                                  className="mt-1 w-full rounded-md border border-border bg-background p-2"
-                                  placeholder={data.commits[0].title}
-                                />
-                              </label>
-                              <label className="block text-sm">
-                                Description
-                                <textarea
-                                  value={prBody}
-                                  maxLength={65536}
-                                  onChange={(event) => setPrBody(event.target.value)}
-                                  rows={4}
-                                  className="mt-1 w-full rounded-md border border-border bg-background p-2"
-                                />
-                              </label>
-                              {!data.published && (
-                                <p className="text-xs text-muted-foreground">
-                                  Push this branch to origin, then refresh to create a pull request.
-                                </p>
-                              )}
-                              {createError && (
-                                <p role="alert" className="text-sm text-destructive">
-                                  {createError.message}
-                                </p>
-                              )}
-                              <Button
-                                type="submit"
-                                disabled={!data.published || creating || merging}
-                              >
-                                {creating ? 'Creating…' : 'Create pull request'}
-                              </Button>
-                            </form>
-                          </details>
-                        )}
+                  {branchPr ? (
+                    <Button
+                      variant="secondary"
+                      className="h-8 text-xs"
+                      disabled={merging}
+                      onClick={() => {
+                        setSelectedPr(branchPr.number)
+                        setView('Pull requests')
+                      }}
+                    >
+                      <GitPullRequest className="size-3.5" />
+                      View pull request{' '}
+                      <span className="text-muted-foreground">#{branchPr.number}</span>
+                    </Button>
+                  ) : (
+                    data.info.defaultBranchRef &&
+                    data.branch !== data.info.defaultBranchRef.name && (
+                      <Button
+                        variant="secondary"
+                        className="h-8 text-xs"
+                        disabled={
+                          creatingPr ||
+                          loading ||
+                          merging ||
+                          chat.activity !== 'idle' ||
+                          data.activity.ahead === 0
+                        }
+                        onClick={() => setShowCreatePr((previous) => !previous)}
+                      >
+                        <GitPullRequest className="size-3.5" />
+                        Create pull request
+                      </Button>
+                    )
+                  )}
+                </div>
+                {data.info.defaultBranchRef && data.branch !== data.info.defaultBranchRef.name && (
+                  <div
+                    className="repository-branch-track mt-4 flex items-center gap-3 text-xs text-muted-foreground"
+                    aria-label={`${data.info.defaultBranchRef.name} to ${data.branch}`}
+                  >
+                    <span className="shrink-0">{data.info.defaultBranchRef.name}</span>
+                    <div className="relative h-4 max-w-64 flex-1" aria-hidden="true">
+                      <span className="absolute inset-x-0 top-2 border-t border-border" />
+                      <span className="absolute top-1 left-0 size-2 rounded-full border border-muted-foreground bg-background" />
+                      <span className="absolute top-1 right-0 size-2 rounded-full bg-foreground/70" />
                     </div>
-                  </details>
+                    <span className="truncate">{data.branch}</span>
+                  </div>
+                )}
+                {showCreatePr && !branchPr && (
+                  <form
+                    className="mt-5 max-w-xl space-y-3 border-t border-border/60 pt-4"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void createPullRequest()
+                    }}
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      {data.branch} → {data.info.defaultBranchRef?.name}. All published commits on
+                      this branch will be included.
+                    </p>
+                    <label className="block text-sm">
+                      Title
+                      <input
+                        required
+                        maxLength={256}
+                        disabled={creatingPr}
+                        value={prTitle}
+                        onChange={(event) => setPrTitle(event.target.value)}
+                        placeholder={data.commits[0]?.title}
+                        className="mt-1 w-full rounded-md border border-border bg-background/50 p-2"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      Description
+                      <textarea
+                        maxLength={65536}
+                        rows={4}
+                        disabled={creatingPr}
+                        value={prBody}
+                        onChange={(event) => setPrBody(event.target.value)}
+                        className="mt-1 w-full rounded-md border border-border bg-background/50 p-2"
+                      />
+                    </label>
+                    {!data.published && (
+                      <p className="text-xs text-muted-foreground">
+                        Push this branch to origin, then refresh to create a pull request.
+                      </p>
+                    )}
+                    {createError && (
+                      <p role="alert" className="text-sm text-destructive">
+                        {createError.message}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        disabled={
+                          !data.published ||
+                          creatingPr ||
+                          merging ||
+                          loading ||
+                          chat.activity !== 'idle'
+                        }
+                      >
+                        {creatingPr ? 'Creating…' : 'Create pull request'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={creatingPr}
+                        onClick={() => setShowCreatePr(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+              <section
+                aria-labelledby="recent-activity-heading"
+                className="border-t border-border/60 pt-5"
+              >
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h2 id="recent-activity-heading" className="text-sm font-medium">
+                    Recent activity
+                  </h2>
+                  <span className="text-xs text-muted-foreground">Latest commits</span>
+                </div>
+                {data.activity.error ? (
+                  <p className="text-sm text-muted-foreground">
+                    Commit history unavailable. Refresh to try again.
+                  </p>
+                ) : !data.activity.commits.length ? (
+                  <p className="text-sm text-muted-foreground">No commits yet.</p>
+                ) : (
+                  <ol className="repository-activity">
+                    {data.activity.commits.map((commit) => (
+                      <li key={commit.hash} className="relative pb-5 pl-6 last:pb-0">
+                        <span className="repository-commit-marker" aria-hidden="true" />
+                        <p className="max-w-prose break-words text-sm font-medium">
+                          {commit.message}
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          <code title={commit.hash}>{commit.hash.slice(0, 7)}</code>
+                          {commit.author && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>{commit.author}</span>
+                            </>
+                          )}
+                          {commit.date && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <time
+                                dateTime={commit.date}
+                                title={new Date(commit.date).toLocaleString()}
+                              >
+                                {new Date(commit.date).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </time>
+                            </>
+                          )}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
                 )}
               </section>
             </>
           )}
           {view === 'Pull requests' && (
             <div className="grid items-start gap-6 lg:grid-cols-2">
-              <section
-                aria-label="Open pull requests"
-                className="divide-y divide-border rounded-xl border border-border bg-background"
-              >
+              <section aria-label="Open pull requests" className="divide-y divide-border/60">
                 {!data.pullRequests.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open pull requests.</p>
                 )}
@@ -419,7 +490,7 @@ export function RepositoryPage({
                     disabled={merging}
                     aria-pressed={selectedPr === pr.number}
                     onClick={() => setSelectedPr(pr.number)}
-                    className="w-full p-4 text-left hover:bg-accent/50 aria-pressed:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring"
+                    className="w-full rounded-lg px-3 py-4 text-left hover:bg-accent/30 aria-pressed:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <p className="text-sm font-medium">{pr.title}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -430,26 +501,25 @@ export function RepositoryPage({
                 ))}
               </section>
               {selectedPr && (
-                <GitHubPanel
-                  key={`${path}:${selectedPr}`}
-                  path={path!}
-                  number={selectedPr}
-                  inline
-                  disabled={chat.activity !== 'idle'}
-                  onMergingChange={(value) => {
-                    setMerging(value)
-                    if (!value) void load()
-                  }}
-                />
+                <div className="repository-pr-detail">
+                  <GitHubPanel
+                    key={`${path}:${selectedPr}`}
+                    path={path!}
+                    number={selectedPr}
+                    inline
+                    disabled={chat.activity !== 'idle'}
+                    onMergingChange={(value) => {
+                      setMerging(value)
+                      if (!value) void load()
+                    }}
+                  />
+                </div>
               )}
             </div>
           )}
           {view === 'Issues' && (
             <div className="grid items-start gap-6 lg:grid-cols-2">
-              <section
-                aria-label="Open issues"
-                className="divide-y divide-border rounded-xl border border-border bg-background"
-              >
+              <section aria-label="Open issues" className="divide-y divide-border/60">
                 {!data.issues.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open issues.</p>
                 )}
@@ -458,7 +528,7 @@ export function RepositoryPage({
                     key={item.number}
                     aria-pressed={selectedIssue === item.number}
                     onClick={() => setSelectedIssue(item.number)}
-                    className="w-full p-4 text-left hover:bg-accent/50 aria-pressed:bg-accent/50 focus-visible:outline-2 focus-visible:outline-ring"
+                    className="w-full rounded-lg px-3 py-4 text-left hover:bg-accent/30 aria-pressed:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
                   >
                     <p className="text-sm font-medium">{item.title}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
@@ -474,7 +544,7 @@ export function RepositoryPage({
                 ))}
               </section>
               {issue && (
-                <section className="rounded-xl border border-border bg-background p-6">
+                <section className="border-t border-border/60 pt-4 lg:border-t-0 lg:border-l lg:pl-6">
                   <h2 className="text-base font-medium">{issue.title}</h2>
                   <p className="mt-4 max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-sm text-muted-foreground">
                     {issue.body || 'No description provided.'}

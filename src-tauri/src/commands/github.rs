@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::process::Command;
 
-use super::git::git;
+use super::git::{git, recent_commits};
 use crate::errors::{AppError, AppResult};
 
 const PR_FIELDS: &str = "number,title,state,isDraft,baseRefName,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,isCrossRepository";
+const ACTIVITY_PR_FIELDS: &str = "number,title,isDraft,headRefName,baseRefName,reviewDecision,state,createdAt,closedAt,mergedAt,mergeCommit,author,mergedBy";
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -266,7 +267,7 @@ pub async fn github_pr_status(path: String, number: Option<u64>) -> AppResult<Gi
 pub async fn github_repository(path: String) -> AppResult<Value> {
     let (repository, branch) = context(path.clone()).await?;
     let repo = format!("github.com/{repository}");
-    let (info, prs, issues) = tokio::try_join!(
+    let (info, prs, issues, recent_prs) = tokio::try_join!(
         async {
             gh(&[
                 "repo",
@@ -288,7 +289,7 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 "--limit",
                 "100",
                 "--json",
-                "number,title,isDraft,headRefName,baseRefName,reviewDecision",
+                ACTIVITY_PR_FIELDS,
             ])
             .await
         },
@@ -306,6 +307,25 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 "number,title,body,labels,author",
             ])
             .await
+        },
+        async {
+            Ok::<_, AppError>(
+                gh(&[
+                    "pr",
+                    "list",
+                    "--repo",
+                    &repo,
+                    "--state",
+                    "all",
+                    "--search",
+                    "is:closed sort:updated-desc",
+                    "--limit",
+                    "30",
+                    "--json",
+                    ACTIVITY_PR_FIELDS,
+                ])
+                .await,
+            )
         }
     )?;
     let base = info["defaultBranchRef"]["name"]
@@ -349,8 +369,20 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
     })
     .await
     .map_err(|error| AppError::new("github", error.to_string()))?;
+    let (recent_prs, activity_error) = match recent_prs {
+        Ok(prs) => (prs, None),
+        Err(error) => (Value::Array(Vec::new()), Some(error.message)),
+    };
+    let mut activity_prs: Vec<Value> = prs
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(30)
+        .cloned()
+        .collect();
+    activity_prs.extend(recent_prs.as_array().cloned().unwrap_or_default());
     Ok(
-        serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues, "commits": commits, "published": published, "activity": activity}),
+        serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues, "commits": commits, "published": published, "activity": activity, "activityPullRequests": activity_prs, "activityError": activity_error}),
     )
 }
 
@@ -473,25 +505,9 @@ fn branch_activity(path: &str, base: Option<&str>) -> Value {
             .parse::<u64>()
             .ok()
     });
-    let history = git(
-        path,
-        &["log", "-20", "--format=%H%x1f%s%x1f%an%x1f%aI", "HEAD"],
-    );
-    let commits: Vec<Value> = history
-        .as_ref()
-        .map(|log| {
-            log.lines()
-                .filter_map(|line| {
-                    let mut fields = line.splitn(4, '\u{1f}');
-                    Some(serde_json::json!({
-                        "hash": fields.next()?, "message": fields.next()?,
-                        "author": fields.next()?, "date": fields.next()?,
-                    }))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    serde_json::json!({"ahead": ahead, "commits": commits, "error": history.err()})
+    let history = recent_commits(path);
+    let error = history.as_ref().err().map(|error| error.message.clone());
+    serde_json::json!({"ahead": ahead, "commits": history.unwrap_or_default(), "error": error})
 }
 
 #[derive(Serialize)]

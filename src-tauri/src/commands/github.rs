@@ -252,7 +252,7 @@ pub async fn github_pr_status(path: String, number: Option<u64>) -> AppResult<Gi
 
 #[tauri::command]
 pub async fn github_repository(path: String) -> AppResult<Value> {
-    let (repository, branch) = context(path).await?;
+    let (repository, branch) = context(path.clone()).await?;
     let repo = format!("github.com/{repository}");
     let (info, prs, issues) = tokio::try_join!(
         async {
@@ -296,7 +296,150 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
             .await
         }
     )?;
-    Ok(serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues}))
+    let base = info["defaultBranchRef"]["name"]
+        .as_str()
+        .unwrap_or("")
+        .to_owned();
+    let branch_for_git = branch.clone();
+    let (commits, published) = tauri::async_runtime::spawn_blocking(move || {
+        if base.is_empty() || base == branch_for_git {
+            return (Vec::new(), false);
+        }
+        let published = git(
+            &path,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("refs/remotes/origin/{branch_for_git}"),
+            ],
+        )
+        .ok()
+            == git(&path, &["rev-parse", "HEAD"]).ok();
+        let log = git(
+            &path,
+            &[
+                "log",
+                "--format=%h%x09%s",
+                "--max-count=30",
+                &format!("refs/remotes/origin/{base}..HEAD"),
+            ],
+        );
+        let commits: Vec<Value> = log
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|line| {
+                let (sha, title) = line.split_once('\t')?;
+                Some(serde_json::json!({"sha": sha, "title": title}))
+            })
+            .collect();
+        (commits, published)
+    })
+    .await
+    .map_err(|error| AppError::new("github", error.to_string()))?;
+    Ok(
+        serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues, "commits": commits, "published": published}),
+    )
+}
+
+#[tauri::command]
+pub async fn github_create_pr(path: String, title: String, body: String) -> AppResult<Value> {
+    let (repository, branch) = context(path.clone()).await?;
+    let info = gh(&[
+        "repo",
+        "view",
+        &format!("github.com/{repository}"),
+        "--json",
+        "defaultBranchRef",
+    ])
+    .await?;
+    let base = info["defaultBranchRef"]["name"]
+        .as_str()
+        .ok_or_else(|| AppError::new("github", "The repository has no default branch."))?
+        .to_owned();
+    if title.trim().is_empty() || title.len() > 256 || body.len() > 65536 || branch == base {
+        return Err(AppError::new(
+            "validation",
+            "Enter a title and select a feature branch.",
+        ));
+    }
+    let head = branch.clone();
+    let git_base = base.clone();
+    let git_path = path.clone();
+    let has_commits = tauri::async_runtime::spawn_blocking(move || -> AppResult<bool> {
+        let local = git(&git_path, &["rev-parse", "HEAD"])
+            .map_err(|message| AppError::new("git", message))?;
+        let remote = git(
+            &git_path,
+            &[
+                "rev-parse",
+                "--verify",
+                &format!("refs/remotes/origin/{head}"),
+            ],
+        )
+        .map_err(|_| {
+            AppError::new(
+                "validation",
+                "Push this branch to origin before creating a pull request.",
+            )
+        })?;
+        if local != remote {
+            return Err(AppError::new(
+                "validation",
+                "Push your latest commits to origin before creating a pull request.",
+            ));
+        }
+        let count = git(
+            &git_path,
+            &[
+                "rev-list",
+                "--count",
+                &format!("refs/remotes/origin/{git_base}..HEAD"),
+            ],
+        )
+        .map_err(|_| {
+            AppError::new(
+                "validation",
+                "Fetch origin to compare this branch with the default branch.",
+            )
+        })?;
+        Ok(count.parse::<u64>().unwrap_or(0) > 0)
+    })
+    .await
+    .map_err(|error| AppError::new("git", error.to_string()))??;
+    if !has_commits {
+        return Err(AppError::new(
+            "validation",
+            "There are no commits to propose against the default branch.",
+        ));
+    }
+    if status(path, None)
+        .await?
+        .pull_request
+        .as_ref()
+        .is_some_and(|pr| pr.state == "OPEN")
+    {
+        return Err(AppError::new(
+            "validation",
+            "This branch already has a pull request.",
+        ));
+    }
+    gh(&[
+        "api",
+        "--hostname",
+        "github.com",
+        "--method",
+        "POST",
+        &format!("repos/{repository}/pulls"),
+        "--raw-field",
+        &format!("title={}", title.trim()),
+        "--raw-field",
+        &format!("body={body}"),
+        "--raw-field",
+        &format!("head={branch}"),
+        "--raw-field",
+        &format!("base={base}"),
+    ])
+    .await
 }
 
 #[derive(Serialize)]

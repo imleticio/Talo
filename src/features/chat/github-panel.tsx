@@ -287,7 +287,10 @@ export function GitHubPanel({
             <>
               <div className="mb-3 flex items-start gap-2">
                 {pr.state === 'MERGED' ? (
-                  <GitMerge className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <GitMerge
+                    className="mt-0.5 size-4 shrink-0 text-purple-600 dark:text-purple-400"
+                    aria-hidden="true"
+                  />
                 ) : (
                   <GitPullRequest className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 )}
@@ -295,13 +298,15 @@ export function GitHubPanel({
                   <p className="text-sm font-medium">
                     {pr.title} <span className="text-muted-foreground">#{pr.number}</span>
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {pr.isDraft
-                      ? 'Draft'
-                      : pr.state === 'OPEN'
-                        ? 'Open'
-                        : pr.state === 'MERGED'
-                          ? 'Merged'
+                  <p
+                    className={`mt-1 text-xs ${pr.state === 'MERGED' ? 'font-medium text-purple-600 dark:text-purple-400' : 'text-muted-foreground'}`}
+                  >
+                    {pr.state === 'MERGED'
+                      ? 'Merged'
+                      : pr.isDraft
+                        ? 'Draft'
+                        : pr.state === 'OPEN'
+                          ? 'Open'
                           : 'Closed'}
                   </p>
                 </div>

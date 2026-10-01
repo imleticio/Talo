@@ -539,6 +539,8 @@
 
 .talo-shell {
   --talo-titlebar-height: 2.5rem;
+  /* Closing panels may slide outside their slot, but must never scroll the window. */
+  overflow: clip;
 }
 
 .talo-titlebar,

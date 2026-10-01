@@ -52,7 +52,23 @@ async fn gh(args: &[&str]) -> AppResult<Value> {
 }
 
 async fn run_gh(executable: &std::ffi::OsStr, args: &[&str]) -> AppResult<Value> {
+    let output = run_gh_output(executable, args, None).await?;
+    if output.is_empty() {
+        return Ok(Value::Null);
+    }
+    serde_json::from_slice(&output)
+        .map_err(|_| AppError::new("github", "GitHub returned an unexpected response."))
+}
+
+async fn run_gh_output(
+    executable: &std::ffi::OsStr,
+    args: &[&str],
+    path: Option<&str>,
+) -> AppResult<Vec<u8>> {
     let mut command = Command::new(executable);
+    if let Some(path) = path {
+        command.current_dir(path);
+    }
     command
         .args(args)
         .env("GH_HOST", "github.com")
@@ -88,11 +104,7 @@ async fn run_gh(executable: &std::ffi::OsStr, args: &[&str]) -> AppResult<Value>
             },
         ));
     }
-    if output.stdout.is_empty() {
-        return Ok(Value::Null);
-    }
-    serde_json::from_slice(&output.stdout)
-        .map_err(|_| AppError::new("github", "GitHub returned an unexpected response."))
+    Ok(output.stdout)
 }
 
 fn github_remote(url: &str) -> AppResult<String> {
@@ -301,9 +313,10 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
         .unwrap_or("")
         .to_owned();
     let branch_for_git = branch.clone();
-    let (commits, published) = tauri::async_runtime::spawn_blocking(move || {
+    let (commits, published, activity) = tauri::async_runtime::spawn_blocking(move || {
+        let activity = branch_activity(&path, if base.is_empty() { None } else { Some(&base) });
         if base.is_empty() || base == branch_for_git {
-            return (Vec::new(), false);
+            return (Vec::new(), false, activity);
         }
         let published = git(
             &path,
@@ -332,12 +345,12 @@ pub async fn github_repository(path: String) -> AppResult<Value> {
                 Some(serde_json::json!({"sha": sha, "title": title}))
             })
             .collect();
-        (commits, published)
+        (commits, published, activity)
     })
     .await
     .map_err(|error| AppError::new("github", error.to_string()))?;
     Ok(
-        serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues, "commits": commits, "published": published}),
+        serde_json::json!({"info": info, "branch": branch, "pullRequests": prs, "issues": issues, "commits": commits, "published": published, "activity": activity}),
     )
 }
 
@@ -440,6 +453,45 @@ pub async fn github_create_pr(path: String, title: String, body: String) -> AppR
         &format!("base={base}"),
     ])
     .await
+}
+
+fn branch_activity(path: &str, base: Option<&str>) -> Value {
+    let base_ref = base.and_then(|name| {
+        [
+            format!("refs/remotes/origin/{name}"),
+            format!("refs/heads/{name}"),
+        ]
+        .into_iter()
+        .find(|reference| git(path, &["rev-parse", "--verify", reference]).is_ok())
+    });
+    let range = base_ref
+        .as_ref()
+        .map(|reference| format!("{reference}..HEAD"));
+    let ahead = range.as_ref().and_then(|range| {
+        git(path, &["rev-list", "--count", range])
+            .ok()?
+            .parse::<u64>()
+            .ok()
+    });
+    let history = git(
+        path,
+        &["log", "-20", "--format=%H%x1f%s%x1f%an%x1f%aI", "HEAD"],
+    );
+    let commits: Vec<Value> = history
+        .as_ref()
+        .map(|log| {
+            log.lines()
+                .filter_map(|line| {
+                    let mut fields = line.splitn(4, '\u{1f}');
+                    Some(serde_json::json!({
+                        "hash": fields.next()?, "message": fields.next()?,
+                        "author": fields.next()?, "date": fields.next()?,
+                    }))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    serde_json::json!({"ahead": ahead, "commits": commits, "error": history.err()})
 }
 
 #[derive(Serialize)]
@@ -575,6 +627,38 @@ mod tests {
     }
 
     #[test]
+    fn activity_reads_real_history_and_handles_missing_base() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().to_str().unwrap();
+        git(path, &["init", "-b", "main"]).unwrap();
+        let commit = [
+            "-c",
+            "user.name=Activity Author",
+            "-c",
+            "user.email=activity@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "Initial commit",
+        ];
+        git(path, &commit).unwrap();
+        git(path, &["switch", "-c", "feature/activity"]).unwrap();
+        git(path, &commit).unwrap();
+        let activity = branch_activity(path, Some("main"));
+        assert_eq!(activity["ahead"], 1);
+        assert_eq!(activity["commits"].as_array().unwrap().len(), 2);
+        assert_eq!(activity["commits"][0]["author"], "Activity Author");
+        assert_eq!(activity["commits"][0]["message"], "Initial commit");
+        assert_eq!(activity["commits"][0]["hash"].as_str().unwrap().len(), 40);
+        assert!(activity["error"].is_null());
+        assert!(branch_activity(path, Some("missing"))["ahead"].is_null());
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]).unwrap();
+        assert_eq!(branch_activity(path, Some("main"))["ahead"], 0);
+    }
+
+    #[test]
     fn merge_is_bound_to_the_displayed_repository_pr_commit_and_method() {
         let current = ready();
         assert!(validate_merge(&current, "owner/repo", 7, "abc123", "squash").is_ok());
@@ -624,6 +708,7 @@ case "$1" in
   status) printf '%s' '{"state":"OPEN"}' ;;
   auth) printf '%s' 'Run gh auth login' >&2; exit 4 ;;
   invalid) printf '%s' 'not json' ;;
+  web) printf '%s' 'Opening pull request in your browser.' ;;
 esac
 "#,
         )
@@ -637,6 +722,12 @@ esac
         assert_eq!(error.kind, "authentication");
         assert!(error.message.contains("gh auth login"));
         assert!(run_gh(executable.as_os_str(), &["invalid"]).await.is_err());
+        assert_eq!(
+            run_gh_output(executable.as_os_str(), &["web"], directory.path().to_str())
+                .await
+                .unwrap(),
+            b"Opening pull request in your browser."
+        );
         assert_eq!(
             run_gh(directory.path().join("missing-gh").as_os_str(), &[])
                 .await

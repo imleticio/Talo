@@ -575,7 +575,8 @@
     var(--gradient-blur-overlay);
 }
 
-.haze-pane[data-session-empty='false'] > .gradient-blur-background {
+.haze-pane[data-session-empty='false'] > .gradient-blur-background,
+.haze-pane[data-section='repository'] > .gradient-blur-background {
   filter: saturate(1.6) brightness(0.95);
   opacity: var(--chat-background-session-opacity, 0.14);
 }

@@ -680,9 +680,9 @@
 
 .repository-entity-layout {
   display: grid;
-  grid-template-columns: minmax(0, 34fr) minmax(0, 66fr);
-  align-items: start;
-  gap: 24px;
+  grid-template-columns: 288px minmax(0, 1fr);
+  align-items: stretch;
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
 }
 
 .repository-page {
@@ -690,9 +690,10 @@
 }
 
 .repository-entity-row {
-  width: 100%;
+  width: calc(100% - 12px);
+  margin: 2px 6px;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   text-align: left;
   transition: background 150ms;
 }
@@ -702,8 +703,26 @@
 }
 
 .repository-entity-row[aria-pressed='true'] {
-  background: color-mix(in oklab, var(--accent) 40%, transparent);
-  box-shadow: inset 2px 0 color-mix(in oklab, var(--foreground) 35%, transparent);
+  background: color-mix(in oklab, var(--foreground) 8%, var(--background));
+}
+
+.repository-entity-row[aria-pressed='false'] > p:first-of-type {
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
+}
+
+.repository-inbox-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+.repository-entity-inbox {
+  align-self: start;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .repository-entity-row:focus-visible {
@@ -714,7 +733,7 @@
 .repository-entity-detail {
   min-width: 0;
   border-left: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  padding-left: 24px;
+  padding: 20px 32px 40px;
 }
 
 .repository-entity-detail > div:first-child:not(.repository-entity-prose) {
@@ -729,7 +748,7 @@
   max-width: 75ch;
   overflow-wrap: anywhere;
   font-size: 14px;
-  line-height: 1.75;
+  line-height: 1.85;
   color: var(--muted-foreground);
 }
 .repository-entity-prose > * + * {
@@ -739,7 +758,8 @@
   color: var(--foreground);
   font-weight: 600;
   line-height: 1.4;
-  margin-top: 24px;
+  margin-top: 32px;
+  margin-bottom: 12px;
 }
 .repository-entity-prose h1 {
   font-size: 20px;
@@ -763,7 +783,7 @@
   margin-top: 4px;
 }
 .repository-entity-prose a {
-  color: var(--foreground);
+  color: light-dark(#2563eb, #93c5fd);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -788,14 +808,56 @@
   padding: 0;
 }
 .repository-entity-prose blockquote {
-  border-left: 2px solid var(--border);
+  border-left: 2px solid color-mix(in oklab, #60a5fa 35%, var(--border));
   padding-left: 16px;
+}
+
+.repository-entity-prose .task-list-item {
+  list-style: none;
+}
+.repository-entity-prose .task-list-item input {
+  margin-right: 8px;
+  accent-color: #60a5fa;
+}
+.repository-entity-prose table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.repository-entity-prose :is(th, td) {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.repository-entity-prose th {
+  color: var(--foreground);
+  font-weight: 500;
 }
 .repository-entity-prose hr {
   border-color: var(--border);
 }
 
-@container (max-width: 600px) {
+.repository-pr-status-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 120px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 8px 0;
+}
+
+@container (max-width: 760px) {
+  .repository-entity-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .repository-entity-detail {
+    padding: 16px;
+  }
+  .repository-pr-status-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+@container (max-width: 580px) {
   .repository-entity-layout {
     grid-template-columns: minmax(0, 1fr);
   }

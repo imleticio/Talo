@@ -11,7 +11,12 @@ import { Check, Circle, GitMerge, GitPullRequest, LoaderCircle, RefreshCw, X } f
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { toAppError, type AppError } from '@/services/errors'
-import { EntityActions, EntityHeader, EntityTime } from '@/features/repository/repository-entity'
+import {
+  EntityActions,
+  EntityBranches,
+  EntityHeader,
+  EntityTime,
+} from '@/features/repository/repository-entity'
 
 type CheckStatus = {
   name?: string
@@ -249,7 +254,11 @@ export function GitHubPanel({
           className="branch-picker-popover z-50 flex max-h-[var(--radix-popover-content-available-height)] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-y-auto rounded-xl border border-border p-4 text-popover-foreground outline-none"
         >
           <div
-            className={`mb-3 flex items-center justify-between gap-3 ${inline ? 'justify-end' : ''}`}
+            className={
+              inline
+                ? 'float-right ml-3 flex items-center'
+                : 'mb-3 flex items-center justify-between gap-3'
+            }
           >
             {!inline && (
               <span className="truncate text-xs text-muted-foreground">
@@ -312,10 +321,8 @@ export function GitHubPanel({
                     {entityMetadata?.createdAt && (
                       <EntityTime date={entityMetadata.createdAt} prefix="Opened " />
                     )}
-                    <span className="w-full break-all">
-                      {pr.headRefName} → {pr.baseRefName}
-                    </span>
                   </EntityHeader>
+                  <EntityBranches source={pr.headRefName} target={pr.baseRefName} />
                   {onAsk && (
                     <EntityActions
                       path={path}
@@ -362,9 +369,12 @@ export function GitHubPanel({
                   </p>
                 </>
               )}
+              {inline && <h3 className="mb-3 text-sm font-medium">Pull request status</h3>}
               <div
                 className={
-                  inline ? 'mb-4 space-y-1 text-xs' : 'mb-3 flex justify-between gap-2 text-xs'
+                  inline
+                    ? 'repository-pr-status-row text-xs'
+                    : 'mb-3 flex justify-between gap-2 text-xs'
                 }
               >
                 <span className="text-muted-foreground">Review</span>
@@ -378,23 +388,29 @@ export function GitHubPanel({
                   {reviewLabels[pr.reviewDecision] ?? 'No review decision'}
                 </span>
               </div>
-              <div className={inline ? 'pb-4' : 'border-t border-border py-3'}>
+              <div
+                className={
+                  inline ? 'repository-pr-status-row text-xs' : 'border-t border-border py-3'
+                }
+              >
                 <p className={`mb-1 text-xs ${inline ? 'text-muted-foreground' : 'font-medium'}`}>
                   Checks
                 </p>
-                {pr.statusCheckRollup?.length ? (
-                  <ul>
-                    {pr.statusCheckRollup.map((check, index) => (
-                      <CheckRow key={index} check={check} />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="py-1 text-xs text-muted-foreground">No checks reported.</p>
-                )}
+                <div>
+                  {pr.statusCheckRollup?.length ? (
+                    <ul>
+                      {pr.statusCheckRollup.map((check, index) => (
+                        <CheckRow key={index} check={check} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="py-1 text-xs text-muted-foreground">No checks reported.</p>
+                  )}
+                </div>
               </div>
               {inline && (
-                <div className="pb-6 text-xs">
-                  <p className="mb-1 text-muted-foreground">Conflicts</p>
+                <div className="repository-pr-status-row mb-6 text-xs">
+                  <p className="text-muted-foreground">Mergeability</p>
                   <p
                     className={
                       pr.mergeable === 'CONFLICTING'
@@ -404,6 +420,9 @@ export function GitHubPanel({
                           : 'text-muted-foreground'
                     }
                   >
+                    {pr.mergeable === 'MERGEABLE' && (
+                      <Check className="mr-1.5 inline size-3.5" aria-hidden="true" />
+                    )}
                     {pr.mergeable === 'CONFLICTING'
                       ? 'Conflicts must be resolved'
                       : pr.mergeable === 'MERGEABLE'
@@ -414,13 +433,18 @@ export function GitHubPanel({
               )}
               {pr.state === 'OPEN' && (
                 <div className="border-t border-border pt-3">
-                  {inline && <h3 className="mb-3 text-sm font-medium">Merge</h3>}
+                  {inline && (
+                    <h3 className="mb-4 flex items-center gap-2 text-sm font-medium">
+                      <GitMerge className="size-4 text-muted-foreground" aria-hidden="true" />
+                      Merge
+                    </h3>
+                  )}
                   {data?.mergeBlockReason && (
                     <p className="mb-3 text-xs text-muted-foreground">{data.mergeBlockReason}</p>
                   )}
                   {data && data.mergeMethods.length > 1 && (
                     <label
-                      className={`mb-3 flex gap-2 text-xs ${inline ? 'max-w-64 flex-col items-start' : 'items-center justify-between'}`}
+                      className={`mb-3 flex gap-2 text-xs ${inline ? 'max-w-sm items-center justify-between' : 'items-center justify-between'}`}
                     >
                       <span className="text-muted-foreground">Merge method</span>
                       <select

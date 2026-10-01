@@ -11,7 +11,14 @@ import type { ActivityPullRequest, GitWorkspace } from './repository-activity'
 import { RepositoryActivityFeed } from './repository-activity-feed'
 import { RepositoryChanges } from './repository-changes'
 import Markdown from 'react-markdown'
-import { EntityActions, EntityHeader, EntityState, EntityTime } from './repository-entity'
+import remarkGfm from 'remark-gfm'
+import {
+  EntityActions,
+  EntityCategory,
+  EntityHeader,
+  EntityTime,
+  GitHubLogo,
+} from './repository-entity'
 
 type Issue = {
   number: number
@@ -205,8 +212,8 @@ export function RepositoryPage({
     }
   }
   return (
-    <div className="repository-page mx-auto w-full max-w-5xl px-6 py-6 sm:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-4">
+    <div className="repository-page mx-auto w-full max-w-[1200px] py-6">
+      <header className="flex w-full flex-wrap items-center justify-between gap-4 px-6 sm:px-8">
         <div className="min-w-0 flex-1">
           <h1 className="break-words text-lg font-medium tracking-tight">
             {repositoryName ? (
@@ -260,7 +267,7 @@ export function RepositoryPage({
       </header>
       <nav
         aria-label="Repository views"
-        className="mt-6 flex gap-6 overflow-x-auto border-b border-border/60"
+        className="mt-6 flex w-full gap-6 overflow-x-auto border-b border-border/60 px-6 sm:px-8"
       >
         {(['Overview', 'Changes', 'Pull requests', 'Issues'] as const).map((item) => (
           <button
@@ -285,12 +292,12 @@ export function RepositoryPage({
         ))}
       </nav>
       {!isTauri() && (
-        <p className="py-8 text-sm text-muted-foreground">
+        <p className="px-6 py-8 text-sm text-muted-foreground sm:px-8">
           Open Talo on the desktop to connect your GitHub repository.
         </p>
       )}
       {isTauri() && !path && (
-        <p className="py-8 text-sm text-muted-foreground">
+        <p className="px-6 py-8 text-sm text-muted-foreground sm:px-8">
           Choose a local repository with a GitHub origin to get started.
         </p>
       )}
@@ -300,7 +307,7 @@ export function RepositoryPage({
         </p>
       )}
       {view !== 'Changes' && loading && !data && (
-        <div className="mt-6" aria-hidden="true">
+        <div className="mt-6 px-6 sm:px-8" aria-hidden="true">
           <section>
             <h2 className="text-sm font-medium">Current branch</h2>
             <div className="mt-2 h-5 w-44 rounded bg-muted" />
@@ -318,7 +325,7 @@ export function RepositoryPage({
       {error && (
         <div
           role="alert"
-          className="mt-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm"
+          className="mx-6 mt-6 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm sm:mx-8"
         >
           <p className="whitespace-pre-wrap">{error.message}</p>
           {['authentication', 'not_installed'].includes(error.kind ?? '') && (
@@ -329,14 +336,20 @@ export function RepositoryPage({
         </div>
       )}
       {data && (
-        <div className="mt-6">
+        <div
+          className={
+            view === 'Issues' || view === 'Pull requests'
+              ? 'mx-6 mt-4 sm:mx-8'
+              : 'mt-6 px-6 sm:px-8'
+          }
+        >
           {view === 'Overview' && (
             <>
               <section aria-labelledby="current-branch-heading" className="pb-6">
                 <h2 id="current-branch-heading" className="text-xs text-muted-foreground">
                   Current branch
                 </h2>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+                <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-4">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-base font-medium">
                       <BranchIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -475,7 +488,15 @@ export function RepositoryPage({
           )}
           {view === 'Pull requests' && (
             <div className="repository-entity-layout">
-              <section aria-label="Open pull requests" className="divide-y divide-border/60">
+              <section aria-label="Open pull requests" className="repository-entity-inbox">
+                <div className="repository-inbox-heading">
+                  <span className="flex items-center gap-2 text-xs font-medium">
+                    <GitHubLogo /> GitHub
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {data.pullRequests.length === 100 ? '100+' : data.pullRequests.length}
+                  </span>
+                </div>
                 {!data.pullRequests.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open pull requests.</p>
                 )}
@@ -488,22 +509,23 @@ export function RepositoryPage({
                     className="repository-entity-row"
                   >
                     <div className="flex items-center gap-2">
-                      <EntityState state={pr.state} draft={pr.isDraft} />
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        #{pr.number}
+                      <GitHubLogo />
+                      <EntityCategory kind="Pull request" number={pr.number} />
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        <EntityTime date={pr.createdAt} />
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{pr.title}</p>
+                    <p
+                      className="mt-1.5 truncate text-sm font-semibold leading-snug"
+                      title={pr.title}
+                    >
+                      {pr.title}
+                    </p>
                     <p
                       className="mt-1 truncate text-xs text-muted-foreground"
-                      title={`${pr.headRefName} → ${pr.baseRefName}`}
+                      title={data.info.nameWithOwner}
                     >
-                      {pr.headRefName} → {pr.baseRefName}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {pr.author?.login}
-                      {pr.author && ' · '}
-                      <EntityTime date={pr.createdAt} />
+                      {data.info.nameWithOwner}
                     </p>
                   </button>
                 ))}
@@ -536,7 +558,15 @@ export function RepositoryPage({
           )}
           {view === 'Issues' && (
             <div className="repository-entity-layout">
-              <section aria-label="Open issues" className="divide-y divide-border/60">
+              <section aria-label="Open issues" className="repository-entity-inbox">
+                <div className="repository-inbox-heading">
+                  <span className="flex items-center gap-2 text-xs font-medium">
+                    <GitHubLogo /> GitHub
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {data.issues.length === 100 ? '100+' : data.issues.length}
+                  </span>
+                </div>
                 {!data.issues.length && (
                   <p className="p-6 text-sm text-muted-foreground">No open issues.</p>
                 )}
@@ -548,19 +578,19 @@ export function RepositoryPage({
                     className="repository-entity-row"
                   >
                     <div className="flex items-center gap-2">
-                      <EntityState state={item.state} />
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        #{item.number}
+                      <GitHubLogo />
+                      <EntityCategory kind="Issue" number={item.number} />
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        <EntityTime date={item.createdAt} />
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">
+                    <p
+                      className="mt-1.5 truncate text-sm font-semibold leading-snug"
+                      title={item.title}
+                    >
                       {item.title}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {item.author?.login}
-                      {item.author && ' · '}
-                      <EntityTime date={item.createdAt} />
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{data.info.nameWithOwner}</p>
                     {item.labels.length > 0 && (
                       <p className="mt-2 text-xs text-muted-foreground">
                         {item.labels.map((label) => label.name).join(' · ')}
@@ -605,6 +635,7 @@ export function RepositoryPage({
                   <div className="repository-entity-prose mt-6 border-t border-border/60 pt-6">
                     <Markdown
                       skipHtml
+                      remarkPlugins={[remarkGfm]}
                       components={{
                         a: ({ href, children }) => (
                           <a href={href} target="_blank" rel="noopener noreferrer">
@@ -631,32 +662,36 @@ export function RepositoryPage({
         </div>
       )}
       {path && isTauri() && view === 'Overview' && (
-        <RepositoryActivityFeed
-          workspace={workspace}
-          prs={data?.activityPullRequests ?? []}
-          loading={localLoading || loading}
-          localError={localError?.message ?? null}
-          githubError={error?.message ?? data?.activityError ?? null}
-        />
+        <div className="px-6 sm:px-8">
+          <RepositoryActivityFeed
+            workspace={workspace}
+            prs={data?.activityPullRequests ?? []}
+            loading={localLoading || loading}
+            localError={localError?.message ?? null}
+            githubError={error?.message ?? data?.activityError ?? null}
+          />
+        </div>
       )}
       {path && isTauri() && view === 'Changes' && (
-        <RepositoryChanges
-          key={path}
-          path={path}
-          workspace={workspace}
-          loading={localLoading}
-          error={localError?.message ?? null}
-          disabled={merging || creatingPr || chat.activity !== 'idle'}
-          onBusyChange={setLocalBusy}
-          onWorkspaceChange={(next) => {
-            localRequest.current++
-            setWorkspace(next)
-            setLocalError(null)
-            setLocalLoading(false)
-          }}
-          onCommitted={load}
-          onRefresh={loadLocal}
-        />
+        <div className="px-6 sm:px-8">
+          <RepositoryChanges
+            key={path}
+            path={path}
+            workspace={workspace}
+            loading={localLoading}
+            error={localError?.message ?? null}
+            disabled={merging || creatingPr || chat.activity !== 'idle'}
+            onBusyChange={setLocalBusy}
+            onWorkspaceChange={(next) => {
+              localRequest.current++
+              setWorkspace(next)
+              setLocalError(null)
+              setLocalLoading(false)
+            }}
+            onCommitted={load}
+            onRefresh={loadLocal}
+          />
+        </div>
       )}
     </div>
   )

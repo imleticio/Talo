@@ -16,3 +16,4 @@ pub fn get_app_info() -> AppInfo {
     }
 }
 pub mod agent;
+pub mod prompt_context;

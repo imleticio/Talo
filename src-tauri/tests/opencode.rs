@@ -2,14 +2,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::sse::{Event, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::{Stream, StreamExt};
 use serde_json::{Value, json};
 use talo_lib::agents::opencode::{OpenCodeAdapter, OpenCodeClient};
-use talo_lib::agents::{AgentAdapter, AgentEvent, AgentModelChoice};
+use talo_lib::agents::{AgentAdapter, AgentEvent, AgentModelChoice, PromptContext};
 use talo_lib::database::Database;
 use talo_lib::models::MessageStatus;
 use talo_lib::services::{agent::AgentService, persistence};
@@ -26,6 +26,8 @@ struct Mock {
     malformed: AtomicBool,
     expect_model: AtomicBool,
     response_model: Mutex<Value>,
+    last_prompt: Mutex<Value>,
+    lookup_directory: Mutex<String>,
 }
 
 async fn health() -> Json<Value> {
@@ -62,6 +64,7 @@ async fn get_session(
     }
 }
 async fn prompt(State(state): State<Arc<Mock>>, Json(body): Json<Value>) -> StatusCode {
+    *state.last_prompt.lock().await = body.clone();
     assert_eq!(body["parts"][0]["text"], "hello");
     if state.expect_model.load(Ordering::SeqCst) {
         assert_eq!(
@@ -104,6 +107,18 @@ async fn prompt(State(state): State<Arc<Mock>>, Json(body): Json<Value>) -> Stat
     }
     StatusCode::NO_CONTENT
 }
+
+async fn skills(State(state): State<Arc<Mock>>, headers: HeaderMap) -> Json<Value> {
+    *state.lookup_directory.lock().await = headers["x-opencode-directory"].to_str().unwrap().into();
+    Json(
+        json!([{"name":"review","description":"Review real code","location":"<built-in>","content":"Check the code and verify the fix."}]),
+    )
+}
+
+async fn files(State(state): State<Arc<Mock>>, headers: HeaderMap) -> Json<Value> {
+    *state.lookup_directory.lock().await = headers["x-opencode-directory"].to_str().unwrap().into();
+    Json(json!(["src/chat.ts", "missing.ts", "../outside.ts"]))
+}
 async fn abort(State(state): State<Arc<Mock>>) -> Json<bool> {
     state.abort_called.store(true, Ordering::SeqCst);
     if !state.silent_abort.load(Ordering::SeqCst) {
@@ -136,10 +151,14 @@ async fn server() -> (String, Arc<Mock>, tokio::task::JoinHandle<()>) {
         malformed: AtomicBool::new(false),
         expect_model: AtomicBool::new(false),
         response_model: Mutex::new(json!({"providerID":"opencode","modelID":"free-model"})),
+        last_prompt: Mutex::new(Value::Null),
+        lookup_directory: Mutex::new(String::new()),
     });
     let router = Router::new()
         .route("/global/health", get(health))
         .route("/provider", get(providers))
+        .route("/skill", get(skills))
+        .route("/find/file", get(files))
         .route("/session", post(create))
         .route("/session/{id}", get(get_session))
         .route("/session/{id}/prompt_async", post(prompt))
@@ -152,6 +171,81 @@ async fn server() -> (String, Arc<Mock>, tokio::task::JoinHandle<()>) {
         axum::serve(listener, router).await.unwrap();
     });
     (url, state, task)
+}
+
+#[tokio::test]
+async fn references_project_files_and_skills_without_changing_saved_user_text() {
+    let dir = tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("src")).unwrap();
+    std::fs::write(dir.path().join("src/chat.ts"), "const value = 1").unwrap();
+    let (url, mock, server) = server().await;
+    let db = Database::initialize(dir.path()).unwrap();
+    let conversation = persistence::create_conversation(&db, None, "References".into()).unwrap();
+    let service = AgentService::new(
+        db.clone(),
+        Arc::new(OpenCodeAdapter::with_endpoint(dir.path().to_path_buf(), url).unwrap()),
+    );
+    let directory = dir
+        .path()
+        .canonicalize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        service
+            .files(directory.clone(), "chat".into())
+            .await
+            .unwrap(),
+        ["src/chat.ts"]
+    );
+    let encoded =
+        percent_encoding::utf8_percent_encode(&directory, percent_encoding::NON_ALPHANUMERIC)
+            .to_string();
+    assert_eq!(*mock.lookup_directory.lock().await, encoded);
+    service
+        .create_session(conversation.id.clone())
+        .await
+        .unwrap();
+    service
+        .send_with_context(
+            conversation.id.clone(),
+            "hello".into(),
+            None,
+            Some(PromptContext {
+                directory: Some(directory.clone()),
+                files: vec!["src/chat.ts".into()],
+                skills: vec!["review".into()],
+            }),
+            |_| {},
+        )
+        .await
+        .unwrap();
+    let body = mock.last_prompt.lock().await;
+    assert_eq!(body["parts"][0]["text"], "hello");
+    assert!(
+        body["parts"][1]["text"]
+            .as_str()
+            .unwrap()
+            .contains(&directory)
+    );
+    assert!(
+        body["parts"][2]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Check the code and verify the fix.")
+    );
+    assert_eq!(body["parts"][3]["type"], "file");
+    assert_eq!(body["parts"][3]["filename"], "src/chat.ts");
+    assert!(
+        body["parts"][3]["url"]
+            .as_str()
+            .unwrap()
+            .ends_with("/src/chat.ts")
+    );
+    let messages = persistence::list_messages(&db, conversation.id).unwrap();
+    assert_eq!(messages[0].content, "hello");
+    server.abort();
 }
 
 #[tokio::test]

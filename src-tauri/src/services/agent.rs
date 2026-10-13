@@ -7,11 +7,15 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use tokio::sync::{Mutex, Notify};
 
-use crate::agents::{AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice};
+use crate::agents::{
+    AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice, AgentSkill,
+    PromptAttachments, PromptContext,
+};
 use crate::database::{Database, ExternalSession};
 use crate::errors::{AppError, AppResult};
 use crate::models::{Message, MessageRole, MessageStatus};
 use crate::services::persistence;
+use crate::services::prompt_context;
 
 const PROVIDER: &str = "opencode";
 
@@ -66,6 +70,23 @@ impl AgentService {
         self.adapter.models().await
     }
 
+    pub async fn skills(&self, directory: Option<String>) -> AppResult<Vec<AgentSkill>> {
+        let directory = directory
+            .map(|path| prompt_context::workspace_directory(&path))
+            .transpose()?;
+        self.adapter.ensure_available().await?;
+        self.adapter.skills(directory.as_deref()).await
+    }
+
+    pub async fn files(&self, directory: String, query: String) -> AppResult<Vec<String>> {
+        let directory = prompt_context::workspace_directory(&directory)?;
+        self.adapter.ensure_available().await?;
+        let files = self.adapter.files(&directory, &query).await?;
+        tokio::task::spawn_blocking(move || prompt_context::available_files(&directory, files))
+            .await
+            .map_err(|_| AppError::new("storage", "Could not search project files"))
+    }
+
     pub async fn create_session(&self, conversation_id: String) -> AppResult<ExternalSession> {
         let _sessions = self.sessions.lock().await;
         let id = conversation_id.clone();
@@ -114,10 +135,38 @@ impl AgentService {
         model: Option<AgentModelChoice>,
         emit: impl Fn(AgentNotification) + Send + Sync,
     ) -> AppResult<Message> {
+        self.send_with_context(conversation_id, content, model, None, emit)
+            .await
+    }
+
+    pub async fn send_with_context(
+        &self,
+        conversation_id: String,
+        content: String,
+        model: Option<AgentModelChoice>,
+        context: Option<PromptContext>,
+        emit: impl Fn(AgentNotification) + Send + Sync,
+    ) -> AppResult<Message> {
         if content.trim().is_empty() || content.contains('\0') {
             return Err(AppError::new("validation", "Invalid message content"));
         }
         let session = self.get_session(conversation_id.clone()).await?;
+        let attachments = if let Some(mut context) = context {
+            context.directory = context
+                .directory
+                .map(|path| prompt_context::workspace_directory(&path))
+                .transpose()?;
+            let skills = if context.skills.is_empty() {
+                Vec::new()
+            } else {
+                self.adapter.skills(context.directory.as_deref()).await?
+            };
+            tokio::task::spawn_blocking(move || prompt_context::prepare(context, skills))
+                .await
+                .map_err(|_| AppError::new("storage", "Could not prepare message references"))??
+        } else {
+            PromptAttachments::default()
+        };
         if let Some(choice) = &model {
             let models = self.adapter.models().await?;
             if !models.iter().any(|available| {
@@ -184,7 +233,7 @@ impl AgentService {
         // The stream is subscribed before prompting so even very fast responses are observed.
         let result = async {
             tokio::select! {
-                result = self.adapter.send_message(&session.external_id, &prompt, model.as_ref()) => result?,
+                result = self.adapter.send_with_attachments(&session.external_id, &prompt, model.as_ref(), &attachments) => result?,
                 _ = run.cancel_signal.notified() => return Err(AppError::new("cancelled", "Run cancelled")),
             }
             self.consume(events, &session, &draft, &run, &emit).await

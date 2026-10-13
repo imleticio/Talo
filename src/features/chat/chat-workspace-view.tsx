@@ -6,6 +6,7 @@ import { ChatPage } from './chat-page'
 import { CHAT_DRAG_TYPE, CHAT_POINTER_DRAG, readChatDrag, type ChatPointerDrag } from './chat-drag'
 import type { ChatConversation } from './use-chat-conversation'
 import { visibleChatPanels } from './chat-panels-state'
+import { useChatNavigationMotion } from './use-chat-navigation-motion'
 
 export function ChatWorkspaceView({ chat }: { chat: ChatConversation }) {
   const [dropTarget, setDropTarget] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
@@ -23,6 +24,7 @@ export function ChatWorkspaceView({ chat }: { chat: ChatConversation }) {
     chat.tabs.map((tab) => tab.id),
     chat.activeTabId,
   )
+  const workspaceRef = useChatNavigationMotion(ids)
 
   function split(tabId: string, anchorId: string, side: 'left' | 'right' = 'right') {
     chat.showPanel(tabId, anchorId, side)
@@ -62,6 +64,7 @@ export function ChatWorkspaceView({ chat }: { chat: ChatConversation }) {
 
   return (
     <div
+      ref={workspaceRef}
       className="chat-workspace flex min-h-0 min-w-0 flex-1 overflow-x-auto"
       data-split={ids.length > 1}
       aria-label="Chat workspace"

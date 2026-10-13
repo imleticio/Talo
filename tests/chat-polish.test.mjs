@@ -95,11 +95,12 @@ test('present opens, manual closure survives events, and terminal states compres
   let html = renderPulse(state)
   assert.ok(html.includes('aria-expanded="true"'))
   assert.ok(html.includes('agent.ts'))
-  assert.equal((html.match(/Reading/g) ?? []).length, 1)
+  assert.ok(!html.includes('pulse-current-row'))
+  assert.ok(html.includes('pulse-group-toggle'))
   state = { ...state, expanded: false }
   state = reduceAgentActivity(state, { type: 'status', text: 'Inspecting repository' })
   assert.ok(renderPulse(state).includes('aria-expanded="false"'))
-  assert.ok(!renderPulse(state).includes('agent.ts'))
+  assert.ok(!renderPulse(state).includes('pulse-file'))
   assert.ok(renderPulse(state, true).includes('Stopping'))
   for (const event of [
     { type: 'completed' },
@@ -110,13 +111,64 @@ test('present opens, manual closure survives events, and terminal states compres
     assert.equal(ended.endedAt, 28000)
     assert.equal(ended.expanded, false)
     html = renderPulse(ended)
-    assert.ok(html.includes('in 27s'))
+    assert.ok(html.includes(event.type === 'completed' ? 'for 27s' : 'in 27s'))
     assert.ok(html.includes('aria-expanded="false"'))
     assert.ok(!html.includes('pulse-working'))
     const inspected = reduceAgentActivity({ ...ended, expanded: true }, tool, 50000)
     assert.equal(inspected.expanded, true)
     assert.ok(renderPulse(inspected).includes('agent.ts'))
   }
+})
+
+test('activity header controls a retained region and empty work stays compact', () => {
+  const state = createAgentActivity(1000, 'Model A')
+  const html = renderPulse(state)
+  const controls = html.match(/aria-controls="([^"]+)"/)?.[1]
+  assert.ok(controls)
+  assert.ok(html.includes(`id="${controls}"`))
+  assert.ok(!html.includes('pulse-current'))
+  const collapsed = renderPulse({ ...state, expanded: false })
+  assert.match(collapsed, /hidden="" class="pulse-details"/)
+})
+
+test('compact action groups retain pending, failure, output and interrupted evidence', () => {
+  let state = reduceAgentActivity(createAgentActivity(1000), {
+    ...tool,
+    state: 'pending',
+  })
+  assert.ok(renderPulse(state).includes('Queued · Reading'))
+  state = reduceAgentActivity(state, {
+    ...tool,
+    state: 'error',
+    output: '<script>failure</script>',
+  })
+  let html = renderPulse(state)
+  assert.ok(html.includes('Failed'))
+  assert.ok(html.includes('Inspect error'))
+  assert.ok(html.includes('&lt;script&gt;failure&lt;/script&gt;'))
+  assert.ok(!html.includes('<script>'))
+  state = reduceAgentActivity(state, { ...tool, id: 'another', path: 'other.ts' })
+  assert.ok(renderPulse(state).includes('Exploring repository'))
+  state = reduceAgentActivity(state, { type: 'cancelled' }, 28000)
+  html = renderPulse({ ...state, expanded: true })
+  assert.ok(html.includes('Interrupted'))
+  assert.ok(!html.includes('Exploring repository'))
+  assert.ok(html.includes('Inspect error'))
+})
+
+test('waiting requests remain visible and take precedence over running tools', () => {
+  let state = reduceAgentActivity(createAgentActivity(1000), tool)
+  state = reduceAgentActivity(state, {
+    type: 'attention',
+    id: 'approval',
+    title: 'Approval required',
+    detail: 'Continue in your agent harness',
+  })
+  const html = renderPulse(state)
+  assert.ok(html.includes('Waiting'))
+  assert.match(html, /class="pulse-current"><span>Approval required<\/span>/)
+  assert.ok(html.includes('Continue in your agent harness'))
+  assert.ok(html.includes('agent.ts'))
 })
 
 test('elapsed formatting and model/timing snapshots stay independent per turn', () => {

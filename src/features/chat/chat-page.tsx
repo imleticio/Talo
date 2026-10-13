@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { ArrowUp, LoaderCircle, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { ComposerInput } from './composer-input'
 import type { ChatConversation } from './use-chat-conversation'
 import { ModelPicker } from './model-picker'
 import { BranchPicker } from './branch-picker'
@@ -21,6 +21,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
     ''
   const waiting = chat.activity !== 'idle' && !response.trim()
   const hasTranscript = chat.messages.length > 0 || chat.live !== null || waiting
+  const showTranscriptArea = hasTranscript || chat.loadingHistory
   const { rootRef, composerRef, transcriptRef, beginSend } = useChatViewTransition({
     hasTranscript,
     loadingHistory: chat.loadingHistory,
@@ -71,7 +72,7 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
     observer.observe(viewport)
     observer.observe(transcript)
     return () => observer.disconnect()
-  }, [hasTranscript, transcriptRef])
+  }, [showTranscriptArea, transcriptRef])
 
   async function send() {
     if (!canSend || !chat.draft.trim() || submitting.current) return
@@ -97,9 +98,9 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
     <div
       ref={rootRef}
       data-has-transcript={hasTranscript}
-      className={`chat-page relative isolate flex min-h-0 flex-1 flex-col items-center overflow-hidden pt-6 pb-[clamp(1.25rem,2.5vh,2rem)] ${hasTranscript ? '' : 'justify-center'}`}
+      className={`chat-page relative isolate flex min-h-0 flex-1 flex-col items-center overflow-hidden pt-6 pb-[clamp(1.25rem,2.5vh,2rem)] ${showTranscriptArea ? '' : 'justify-center'}`}
     >
-      {hasTranscript && (
+      {showTranscriptArea && (
         <div
           ref={scrollViewport}
           className="chat-scroll-viewport min-h-0 w-full flex-1 overflow-y-auto"
@@ -114,6 +115,11 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
             aria-label="Conversation"
             className="chat-transcript mx-auto flex w-full max-w-3xl flex-col gap-6 pt-3 pb-6"
           >
+            {chat.loadingHistory && !hasTranscript && (
+              <li role="status" className="text-sm text-muted-foreground">
+                Loading conversation…
+              </li>
+            )}
             {messages.map((message) =>
               waiting &&
               message.id === chat.live?.messageId &&
@@ -149,11 +155,6 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
       )}
       <div key="composer" className="chat-composer-area flex max-w-3xl shrink-0 flex-col">
         {!hasTranscript && !chat.loadingHistory && <ChatWelcome />}
-        {!hasTranscript && chat.loadingHistory && (
-          <p role="status" className="mb-8 text-center text-sm text-muted-foreground">
-            Loading conversation…
-          </p>
-        )}
         {chat.error && (
           <div
             role="alert"
@@ -207,19 +208,15 @@ export function ChatPage({ chat }: { chat: ChatConversation }) {
           <label htmlFor={`chat-message-${chat.activeTabId}`} className="sr-only">
             Message
           </label>
-          <Textarea
+          <ComposerInput
             id={`chat-message-${chat.activeTabId}`}
-            value={chat.draft}
-            onChange={(event) => chat.setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault()
-                void send()
-              }
-            }}
-            placeholder="Ask anything…"
+            draft={chat.draft}
+            fallbackDirectory={
+              chat.conversations.find((item) => item.id === chat.activeId)?.repositoryPath ?? null
+            }
+            onDraftChange={chat.setDraft}
+            onSend={() => void send()}
             disabled={!canSend}
-            className="max-h-[min(12rem,25vh)] min-h-10 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-base leading-relaxed shadow-none placeholder:text-muted-foreground/80 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-100 focus-visible:ring-0 md:text-base dark:bg-transparent dark:disabled:bg-transparent"
           />
           <div className="flex items-end justify-between gap-2 pt-1 sm:gap-4">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">

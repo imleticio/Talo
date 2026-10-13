@@ -27,6 +27,9 @@ export type AgentModelChoice = {
   variant: string | null
 }
 
+export type AgentSkill = { name: string; description: string; location: string }
+export type PromptContext = { directory: string | null; files: string[]; skills: string[] }
+
 export type AgentTask = {
   id: string
   label: string
@@ -73,6 +76,10 @@ export const onAgentUpdate = (handler: (update: AgentUpdate) => void) =>
   listen<AgentUpdate>('agent:update', ({ payload }) => handler(payload))
 export const opencodeStatus = () => call<AgentInfo>('opencode_status')
 export const opencodeModels = () => call<AgentModel[]>('opencode_models')
+export const opencodeSkills = (directory: string | null) =>
+  call<AgentSkill[]>('opencode_skills', { directory })
+export const opencodeFiles = (directory: string, query: string) =>
+  call<string[]>('opencode_files', { directory, query })
 export const opencodeCreateSession = (conversationId: string) =>
   call<ExternalSession>('opencode_create_session', { conversationId })
 export const opencodeGetSession = (conversationId: string) =>
@@ -81,6 +88,7 @@ export const opencodeSendMessage = (
   conversationId: string,
   content: string,
   model: AgentModelChoice | null = null,
-) => call<Message>('opencode_send_message', { conversationId, content, model })
+  context: PromptContext | null = null,
+) => call<Message>('opencode_send_message', { conversationId, content, model, context })
 export const opencodeCancel = (conversationId: string) =>
   call<void>('opencode_cancel', { conversationId })

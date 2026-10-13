@@ -13,7 +13,8 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
 use crate::agents::{
-    AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice, AgentUpdate, EventStream,
+    AgentAdapter, AgentEvent, AgentInfo, AgentModel, AgentModelChoice, AgentSkill, AgentUpdate,
+    EventStream, PromptAttachments,
 };
 use crate::errors::{AppError, AppResult};
 
@@ -70,6 +71,12 @@ impl OpenCodeAdapter {
 impl AgentAdapter for OpenCodeAdapter {
     async fn models(&self) -> AppResult<Vec<AgentModel>> {
         self.client().await.models().await
+    }
+    async fn skills(&self, directory: Option<&str>) -> AppResult<Vec<AgentSkill>> {
+        self.client().await.skills(directory).await
+    }
+    async fn files(&self, directory: &str, query: &str) -> AppResult<Vec<String>> {
+        self.client().await.files(directory, query).await
     }
     async fn info(&self) -> AppResult<AgentInfo> {
         let installed_version = Self::binary_version().await;
@@ -178,6 +185,19 @@ impl AgentAdapter for OpenCodeAdapter {
     }
     async fn cancel(&self, session: &str) -> AppResult<()> {
         self.client().await.abort(session).await
+    }
+
+    async fn send_with_attachments(
+        &self,
+        session: &str,
+        content: &str,
+        model: Option<&AgentModelChoice>,
+        attachments: &PromptAttachments,
+    ) -> AppResult<()> {
+        self.client()
+            .await
+            .prompt_with_attachments(session, content, model, attachments)
+            .await
     }
 
     async fn events(&self) -> AppResult<EventStream> {

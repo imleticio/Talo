@@ -1,16 +1,85 @@
-import { Check, Circle, Minus, X } from 'lucide-react'
+import {
+  BookOpen,
+  Check,
+  ChevronRight,
+  Circle,
+  Minus,
+  Pencil,
+  Terminal,
+  Wrench,
+  X,
+} from 'lucide-react'
 import type { AgentTask, AgentTool } from '@/services/agent'
-import { actionLabel, groupActivity, taskProgress } from './agent-activity'
+import { actionLabel, groupActivity, taskProgress, type ActivityGroup } from './agent-activity'
 
 export function FileActivity({ path }: { path: string }) {
   const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
   return (
     <span className="pulse-file" title={path}>
       <span className="pulse-directory">{path.slice(0, separator + 1)}</span>
-      <span className="pulse-filename font-medium text-foreground">
-        {path.slice(separator + 1)}
-      </span>
+      <span className="pulse-filename">{path.slice(separator + 1)}</span>
     </span>
+  )
+}
+
+function GroupSummary({ group, finished }: { group: ActivityGroup; finished: boolean }) {
+  const first = group.actions[0]
+  const Icon =
+    group.label === 'Exploration'
+      ? BookOpen
+      : first.action === 'command'
+        ? Terminal
+        : ['edit', 'write', 'create', 'delete'].includes(first.action)
+          ? Pencil
+          : Wrench
+  const completedLabels = {
+    read: 'Read',
+    search: 'Searched',
+    edit: 'Edited',
+    write: 'Wrote',
+    create: 'Created',
+    delete: 'Deleted',
+    command: 'Ran command',
+    tool: first.title,
+  }
+  const running = !finished && group.actions.some((action) => action.state === 'running')
+  const pending = !finished && group.actions.some((action) => action.state === 'pending')
+  const label =
+    group.actions.length === 1
+      ? first.state === 'completed'
+        ? completedLabels[first.action]
+        : first.state === 'pending'
+          ? finished
+            ? `Not run · ${actionLabel(first)}`
+            : `Queued · ${actionLabel(first)}`
+          : finished && first.state === 'running'
+            ? `Interrupted · ${actionLabel(first)}`
+            : actionLabel(first)
+      : group.label === 'Exploration'
+        ? running || pending
+          ? 'Exploring repository'
+          : 'Repository exploration'
+        : group.label
+  const failed = group.actions.some(
+    (action) => action.state === 'error' || (action.exitCode !== null && action.exitCode !== 0),
+  )
+
+  return (
+    <>
+      <Icon className="size-3 shrink-0" aria-hidden="true" />
+      <span className={`pulse-group-label ${running ? 'text-foreground' : ''}`}>
+        {label}
+        {group.actions.length === 1 && first.path && (
+          <>
+            {' '}
+            <FileActivity path={first.path} />
+          </>
+        )}
+        {group.actions.length > 1 && <span> · {group.actions.length} actions</span>}
+      </span>
+      {failed && <span className="text-destructive">Failed</span>}
+      <ChevronRight className="pulse-group-chevron size-3 shrink-0" aria-hidden="true" />
+    </>
   )
 }
 
@@ -108,20 +177,13 @@ export function ActivityDetails({
   finished: boolean
 }) {
   return (
-    <section aria-label="Agent actions" className="space-y-3">
+    <section aria-label="Agent actions" className="pulse-action-groups">
       {groupActivity(actions).map((group, index) => (
         <details key={`${index}-${group.label}`} className="pulse-group">
-          <summary className="cursor-pointer text-xs text-muted-foreground">
-            {group.label}{' '}
-            <span className="ml-1">
-              · {group.actions.length} {group.actions.length === 1 ? 'action' : 'actions'}
-            </span>
-            {group.actions.some(
-              (action) =>
-                action.state === 'error' || (action.exitCode !== null && action.exitCode !== 0),
-            ) && <span className="ml-2 text-destructive">Failed</span>}
+          <summary className="pulse-group-toggle">
+            <GroupSummary group={group} finished={finished} />
           </summary>
-          <ol className="mt-3 space-y-3">
+          <ol className="pulse-group-actions">
             {group.actions.map((action) => (
               <ToolActivity key={action.id} action={action} finished={finished} />
             ))}

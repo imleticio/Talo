@@ -5,6 +5,11 @@ import { FolderOpen, GitPullRequest, RefreshCw } from 'lucide-react'
 import { BranchIcon } from '@/components/ui/branch-icon'
 import { Button } from '@/components/ui/button'
 import { GitHubPanel } from '@/features/chat/github-panel'
+import {
+  repositoryPath,
+  saveRepositoryPath,
+  useRepositoryPath,
+} from '@/features/chat/use-repository-path'
 import type { ChatConversation } from '@/features/chat/use-chat-conversation'
 import { toAppError, type AppError } from '@/services/errors'
 import type { ActivityPullRequest, GitWorkspace } from './repository-activity'
@@ -62,15 +67,6 @@ type RepositoryData = {
     error: string | null
   }
 }
-const storageKey = 'talo.git-repository'
-
-function savedPath() {
-  try {
-    return localStorage.getItem(storageKey)
-  } catch {
-    return null
-  }
-}
 
 export function RepositoryPage({
   chat,
@@ -79,10 +75,10 @@ export function RepositoryPage({
   chat: ChatConversation
   onShowChat: () => void
 }) {
-  const [path, setPath] = useState(savedPath)
+  const path = useRepositoryPath()
   const [data, setData] = useState<RepositoryData | null>(null)
   const [error, setError] = useState<AppError | null>(null)
-  const [loading, setLoading] = useState(() => Boolean(savedPath()) && isTauri())
+  const [loading, setLoading] = useState(() => Boolean(repositoryPath()) && isTauri())
   const [choosing, setChoosing] = useState(false)
   const [merging, setMerging] = useState(false)
   const [creatingPr, setCreatingPr] = useState(false)
@@ -92,7 +88,7 @@ export function RepositoryPage({
   const [prBody, setPrBody] = useState('')
   const [workspace, setWorkspace] = useState<GitWorkspace | null>(null)
   const [localError, setLocalError] = useState<AppError | null>(null)
-  const [localLoading, setLocalLoading] = useState(() => Boolean(savedPath()) && isTauri())
+  const [localLoading, setLocalLoading] = useState(() => Boolean(repositoryPath()) && isTauri())
   const [localBusy, setLocalBusy] = useState(false)
   const [view, setView] = useState<'Overview' | 'Changes' | 'Pull requests' | 'Issues'>('Overview')
   const [selectedPr, setSelectedPr] = useState<number | null>(null)
@@ -171,9 +167,8 @@ export function RepositoryPage({
       setCreateError(null)
       setPrTitle('')
       setPrBody('')
-      setPath(next)
       try {
-        localStorage.setItem(storageKey, next)
+        saveRepositoryPath(next)
       } catch {
         /* Selection still works without persistence. */
       }

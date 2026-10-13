@@ -3,6 +3,8 @@ import { isTauri } from '@tauri-apps/api/core'
 import { groupChatPanel, removePanelFromGroups } from './chat-panels-state'
 import { createAgentActivity, reduceAgentActivity } from './agent-activity'
 import { applyChatAgentUpdate } from './chat-agent-update'
+import { promptReferences } from './composer-references'
+import { repositoryPath } from './use-repository-path'
 import {
   onAgentUpdate,
   opencodeCancel,
@@ -474,6 +476,10 @@ export function useChatConversation() {
     if (!tab) return
     const runtime = runtimeFor(tab.id)
     const text = tab.draft.trim()
+    const directory =
+      repositoryPath() ??
+      conversations.find((item) => item.id === tab.conversationId)?.repositoryPath ??
+      null
     if (
       !text ||
       runtime.busy ||
@@ -499,13 +505,7 @@ export function useChatConversation() {
     const previousSequence = tab.messages.at(-1)?.sequence ?? 0
     try {
       if (!id) {
-        let repositoryPath: string | null = null
-        try {
-          repositoryPath = localStorage.getItem('talo.git-repository')
-        } catch {
-          // Repository context is optional when preferences are unavailable.
-        }
-        const conversation = await createConversation(conversationTitle(text), null, repositoryPath)
+        const conversation = await createConversation(conversationTitle(text), null, directory)
         ++conversationsRequest.current
         id = conversation.id
         runtime.unboundId = id
@@ -527,7 +527,7 @@ export function useChatConversation() {
       patchTab(tab.id, { activity: 'sending', draft: '' })
       runtime.runId = null
       submitted = true
-      await opencodeSendMessage(id, text, selectedModel)
+      await opencodeSendMessage(id, text, selectedModel, { directory, ...promptReferences(text) })
     } catch (reason) {
       const failure: AppError = toAppError(reason)
       if (runtime.runId) {

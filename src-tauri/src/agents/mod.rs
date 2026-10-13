@@ -98,11 +98,38 @@ pub struct AgentModelChoice {
     pub variant: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AgentSkill {
+    pub name: String,
+    pub description: String,
+    pub location: String,
+    #[serde(default, skip_serializing)]
+    pub content: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptContext {
+    pub directory: Option<String>,
+    #[serde(default)]
+    pub files: Vec<String>,
+    #[serde(default)]
+    pub skills: Vec<String>,
+}
+
+#[derive(Debug, Default)]
+pub struct PromptAttachments {
+    pub files: Vec<(String, String)>,
+    pub instructions: Vec<String>,
+}
+
 #[async_trait]
 pub trait AgentAdapter: Send + Sync {
     async fn info(&self) -> AppResult<AgentInfo>;
     async fn ensure_available(&self) -> AppResult<()>;
     async fn models(&self) -> AppResult<Vec<AgentModel>>;
+    async fn skills(&self, directory: Option<&str>) -> AppResult<Vec<AgentSkill>>;
+    async fn files(&self, directory: &str, query: &str) -> AppResult<Vec<String>>;
     async fn create_session(&self, title: &str) -> AppResult<String>;
     async fn get_session(&self, id: &str) -> AppResult<String>;
     async fn send_message(
@@ -110,6 +137,13 @@ pub trait AgentAdapter: Send + Sync {
         session: &str,
         content: &str,
         model: Option<&AgentModelChoice>,
+    ) -> AppResult<()>;
+    async fn send_with_attachments(
+        &self,
+        session: &str,
+        content: &str,
+        model: Option<&AgentModelChoice>,
+        attachments: &PromptAttachments,
     ) -> AppResult<()>;
     async fn cancel(&self, session: &str) -> AppResult<()>;
     async fn events(&self) -> AppResult<EventStream>;

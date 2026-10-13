@@ -6,23 +6,15 @@ import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { BranchIcon } from '@/components/ui/branch-icon'
 import { GitHubPanel } from './github-panel'
+import { saveRepositoryPath, useRepositoryPath } from './use-repository-path'
 
 type Repository = { path: string; branch: string | null; revision: string; branches: string[] }
-const STORAGE_KEY = 'talo.git-repository'
-
-function savedPath() {
-  try {
-    return localStorage.getItem(STORAGE_KEY)
-  } catch {
-    return null
-  }
-}
 
 export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
   const [githubBusy, setGithubBusy] = useState(false)
   const githubLock = useRef(false)
   const disabled = chatBusy || githubBusy
-  const [path, setPath] = useState(savedPath)
+  const path = useRepositoryPath()
   const [repository, setRepository] = useState<Repository | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -85,10 +77,9 @@ export function BranchPicker({ disabled: chatBusy }: { disabled: boolean }) {
       if (!selected) return
       const next = await invoke<Repository>('git_repository', { path: selected })
       setRepository(next)
-      setPath(next.path)
       setSearch('')
       try {
-        localStorage.setItem(STORAGE_KEY, next.path)
+        saveRepositoryPath(next.path)
       } catch {
         setError('Repository selected, but the folder preference could not be saved.')
       }

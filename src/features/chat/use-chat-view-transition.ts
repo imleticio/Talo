@@ -44,7 +44,7 @@ export function useChatViewTransition({
   function beginSend(text: string) {
     cancelSend()
     const composer = composerRef.current
-    const input = composer?.querySelector('textarea')
+    const input = composer?.querySelector<HTMLElement>('textarea, [data-composer-editor]')
     if (
       !composer ||
       !input ||
@@ -261,7 +261,9 @@ export function useChatViewTransition({
       // Keep the departing text attached to the composer's visible position,
       // including its first-send movement while the message is being created.
       const source =
-        composerRef.current?.querySelector('textarea')?.getBoundingClientRect() ?? pending.source
+        composerRef.current
+          ?.querySelector('textarea, [data-composer-editor]')
+          ?.getBoundingClientRect() ?? pending.source
       const bounds = bubble.getBoundingClientRect()
       const viewport = transcript.getBoundingClientRect()
       const compact =

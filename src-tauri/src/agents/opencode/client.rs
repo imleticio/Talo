@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::json;
 
 use super::types::{Event, Health, Providers, Session, parse_sse};
-use crate::agents::{AgentModel, AgentModelChoice};
+use crate::agents::{AgentModel, AgentModelChoice, AgentSkill, PromptAttachments};
 use crate::errors::{AppError, AppResult};
 
 #[derive(Clone)]
@@ -56,6 +56,31 @@ impl OpenCodeClient {
         self.http
             .request(method, format!("{}{path}", self.endpoint))
             .header("x-opencode-directory", &self.directory)
+    }
+
+    fn scoped(&self, directory: Option<&str>) -> Self {
+        let mut client = self.clone();
+        if let Some(directory) = directory {
+            client.directory = utf8_percent_encode(directory, NON_ALPHANUMERIC).to_string();
+        }
+        client
+    }
+
+    pub async fn skills(&self, directory: Option<&str>) -> AppResult<Vec<AgentSkill>> {
+        self.json(
+            self.scoped(directory)
+                .request(reqwest::Method::GET, "/skill"),
+        )
+        .await
+    }
+
+    pub async fn files(&self, directory: &str, query: &str) -> AppResult<Vec<String>> {
+        self.json(
+            self.scoped(Some(directory))
+                .request(reqwest::Method::GET, "/find/file")
+                .query(&[("query", query), ("type", "file"), ("limit", "30")]),
+        )
+        .await
     }
 
     pub async fn health(&self) -> AppResult<Health> {
@@ -129,8 +154,28 @@ impl OpenCodeClient {
         content: &str,
         model: Option<&AgentModelChoice>,
     ) -> AppResult<()> {
+        self.prompt_with_attachments(id, content, model, &PromptAttachments::default())
+            .await
+    }
+
+    pub async fn prompt_with_attachments(
+        &self,
+        id: &str,
+        content: &str,
+        model: Option<&AgentModelChoice>,
+        attachments: &PromptAttachments,
+    ) -> AppResult<()> {
         let id = valid_id(id.to_owned())?;
-        let mut payload = json!({"parts": [{"type": "text", "text": content}]});
+        let mut parts = vec![json!({"type": "text", "text": content})];
+        for instruction in &attachments.instructions {
+            parts.push(json!({"type": "text", "text": instruction}));
+        }
+        for (filename, url) in &attachments.files {
+            parts.push(
+                json!({"type": "file", "mime": "text/plain", "filename": filename, "url": url}),
+            );
+        }
+        let mut payload = json!({"parts": parts});
         if let Some(model) = model {
             payload["model"] = json!({"providerID": model.provider_id, "modelID": model.model_id});
             if let Some(variant) = &model.variant {
